@@ -21,12 +21,13 @@ import { Contact } from './components/Contact';
 import { SocialSection } from './components/SocialSection';
 import { Footer } from './components/Footer';
 
-// Dynamic Cart, Checkout, Business Hours & WhatsApp components
+// Dynamic Cart, Checkout, Business Hours, WhatsApp & Chatbot components
 import { CartDrawer } from './components/CartDrawer';
 import { CheckoutModal } from './components/CheckoutModal';
 import { ClosedRestaurantModal } from './components/ClosedRestaurantModal';
 import { FloatingCartButton } from './components/FloatingCartButton';
 import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton';
+import { Chatbot } from './components/Chatbot';
 
 export default function App() {
   return (
@@ -94,6 +95,9 @@ export default function App() {
 
         {/* Floating WhatsApp Quick Action Button */}
         <WhatsAppFloatingButton />
+
+        {/* Small Interactive Dragon Bot Assistant */}
+        <Chatbot />
       </div>
     </OrderProvider>
   );
