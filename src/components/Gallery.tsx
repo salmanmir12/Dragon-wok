@@ -80,6 +80,10 @@ export const Gallery: React.FC = () => {
                   alt={item.title}
                   loading="lazy"
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = '/images/hero_wok_fire.jpg';
+                  }}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-95"
                 />
               </div>

@@ -116,7 +116,7 @@ export const MENU_ITEMS: MenuItem[] = [
     name: 'Chicken Chowmein', 
     category: 'Noodles', 
     price: 749,
-    image: '/src/assets/images/dish_chowmein_1791288868372.jpg',
+    image: '/images/dish_chowmein.jpg',
     isPopular: true 
   },
   { id: 'nd-2', name: 'Vegetable Chowmein', category: 'Noodles', price: 549 },
@@ -126,7 +126,7 @@ export const MENU_ITEMS: MenuItem[] = [
     name: 'Dragon Chowmein', 
     category: 'Noodles', 
     price: 849, 
-    image: '/src/assets/images/dish_chowmein_1791288868372.jpg',
+    image: '/images/dish_chowmein.jpg',
     isSignature: true,
     isPopular: true 
   },
@@ -138,7 +138,7 @@ export const MENU_ITEMS: MenuItem[] = [
     name: 'Fried Momos (1 Plate)', 
     category: 'Momos', 
     price: 550, 
-    image: '/src/assets/images/dish_momos_1791288881218.jpg',
+    image: '/images/dish_momos.jpg',
     isPopular: true 
   },
   { id: 'mo-3', name: 'Half Fried Momos', category: 'Momos', price: 550 },
@@ -154,7 +154,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 2500,
     isSignature: true,
     isPopular: true,
-    image: '/src/assets/images/dish_hot_pot_1791288849803.jpg',
+    image: '/images/dish_hot_pot.jpg',
     ingredients: [
       'Noodles',
       'Sausages',
@@ -265,7 +265,7 @@ export const FEATURED_DISHES = [
     name: 'Dragon Chowmein',
     price: 849,
     category: 'Noodles',
-    image: '/src/assets/images/dish_chowmein_1791288868372.jpg',
+    image: '/images/dish_chowmein.jpg',
     badge: 'Signature Wok'
   },
   {
@@ -273,7 +273,7 @@ export const FEATURED_DISHES = [
     name: 'Chicken Chowmein',
     price: 749,
     category: 'Noodles',
-    image: '/src/assets/images/dish_chowmein_1791288868372.jpg',
+    image: '/images/dish_chowmein.jpg',
     badge: 'Local Favorite'
   },
   {
@@ -281,7 +281,7 @@ export const FEATURED_DISHES = [
     name: 'Fried Momos',
     price: 550,
     category: 'Momos',
-    image: '/src/assets/images/dish_momos_1791288881218.jpg',
+    image: '/images/dish_momos.jpg',
     badge: 'Crispy & Tender'
   },
   {
@@ -289,7 +289,7 @@ export const FEATURED_DISHES = [
     name: 'Hot & Sour Soup',
     price: 400,
     category: 'Soup',
-    image: '/src/assets/images/hero_wok_fire_1791288825817.jpg',
+    image: '/images/hero_wok_fire.jpg',
     badge: 'Zesty & Classic'
   },
   {
@@ -297,7 +297,7 @@ export const FEATURED_DISHES = [
     name: 'Chicken Manchurian',
     price: 1400,
     category: 'Chicken',
-    image: '/src/assets/images/hero_wok_fire_1791288825817.jpg',
+    image: '/images/hero_wok_fire.jpg',
     badge: 'Rich Sauté'
   },
   {
@@ -305,7 +305,7 @@ export const FEATURED_DISHES = [
     name: 'Szechwan Hot Pot',
     price: 2500,
     category: 'Hot Pot',
-    image: '/src/assets/images/dish_hot_pot_1791288849803.jpg',
+    image: '/images/dish_hot_pot.jpg',
     badge: 'Masterpiece'
   }
 ];
@@ -315,49 +315,49 @@ export const GALLERY_ITEMS = [
     id: 'gal-1',
     title: 'Wok Hei Flame Tossing',
     category: 'Wok',
-    image: '/src/assets/images/hero_wok_fire_1791288825817.jpg',
+    image: '/images/hero_wok_fire.jpg',
     description: 'High-heat wok cooking unleashing authentic smoky wok hei flavor.'
   },
   {
     id: 'gal-2',
     title: 'Szechwan Hot Pot Feast',
     category: 'Food',
-    image: '/src/assets/images/dish_hot_pot_1791288849803.jpg',
+    image: '/images/dish_hot_pot.jpg',
     description: 'Rich chili broth loaded with dumplings, chicken, and fresh vegetables.'
   },
   {
     id: 'gal-3',
     title: 'Dragon Chowmein',
     category: 'Noodles',
-    image: '/src/assets/images/dish_chowmein_1791288868372.jpg',
+    image: '/images/dish_chowmein.jpg',
     description: 'Tossed noodles with tender cuts and crisp garden greens.'
   },
   {
     id: 'gal-4',
     title: 'Crispy Fried & Steamed Momos',
     category: 'Momos',
-    image: '/src/assets/images/dish_momos_1791288881218.jpg',
+    image: '/images/dish_momos.jpg',
     description: 'Handcrafted dumplings served with savory chili oil sauce.'
   },
   {
     id: 'gal-5',
     title: 'Hot & Sour Soup Tureen',
     category: 'Soups',
-    image: '/src/assets/images/hero_wok_fire_1791288825817.jpg',
+    image: '/images/hero_wok_fire.jpg',
     description: 'Steaming broth with balanced spicy and tangy notes.'
   },
   {
     id: 'gal-6',
     title: 'Chicken Main Course Stir-Fry',
     category: 'Chicken',
-    image: '/src/assets/images/dish_chowmein_1791288868372.jpg',
+    image: '/images/dish_chowmein.jpg',
     description: 'Fresh poultry glazed in rich Chinese sauces and chili.'
   },
   {
     id: 'gal-7',
     title: 'Dining Atmosphere',
     category: 'Restaurant',
-    image: '/src/assets/images/hero_wok_fire_1791288825817.jpg',
+    image: '/images/hero_wok_fire.jpg',
     description: 'Welcoming dining ambiance at Jadoon Plaza Phase 1.'
   }
 ];

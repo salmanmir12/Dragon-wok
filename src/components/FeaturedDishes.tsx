@@ -37,7 +37,12 @@ export const FeaturedDishes: React.FC = () => {
                 <img
                   src={dish.image}
                   alt={`${dish.name} - Dragon Wok Abbottabad`}
+                  loading="lazy"
                   referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = '/images/hero_wok_fire.jpg';
+                  }}
                   className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 filter brightness-95"
                 />
                 

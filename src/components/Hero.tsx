@@ -8,13 +8,22 @@ export const Hero: React.FC = () => {
   return (
     <section id="home" className="relative min-h-[92vh] lg:min-h-screen flex items-center justify-center overflow-hidden bg-[#121316]">
       {/* Background Image with Cinematic Scrim */}
-      <div className="absolute inset-0 z-0">
-        <img
-          src="/src/assets/images/hero_wok_fire_1791288825817.jpg"
-          alt="Chinese wok stir-frying over high flames with golden steam in Dragon Wok Abbottabad"
-          referrerPolicy="no-referrer"
-          className="w-full h-full object-cover object-center scale-105 filter brightness-[0.4] contrast-[1.1] transition-transform duration-1000"
-        />
+      <div className="absolute inset-0 z-0 bg-[#121316]">
+        <picture>
+          <source srcSet="/images/hero_wok_fire.webp" type="image/webp" />
+          <img
+            src="/images/hero_wok_fire.jpg"
+            alt="Chinese wok stir-frying over high flames with golden steam in Dragon Wok Abbottabad"
+            referrerPolicy="no-referrer"
+            loading="eager"
+            fetchPriority="high"
+            onError={(e) => {
+              // Hide broken image frame gracefully if image fails
+              e.currentTarget.style.opacity = '0';
+            }}
+            className="w-full h-full object-cover object-center scale-105 filter brightness-[0.4] contrast-[1.1] transition-transform duration-1000"
+          />
+        </picture>
         {/* Layered Gradients for guaranteed WCAG AA text legibility */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#121316] via-[#121316]/60 to-[#121316]/70" />
         <div className="absolute inset-0 bg-radial-gradient from-transparent via-[#121316]/50 to-[#121316]/90" />

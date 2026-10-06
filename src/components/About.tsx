@@ -36,13 +36,21 @@ export const About: React.FC = () => {
           {/* Left Column: Atmospheric Visual Showcase */}
           <div className="lg:col-span-5 relative">
             <div className="relative rounded-2xl overflow-hidden border border-stone-800 bg-stone-900 shadow-2xl group">
-              <div className="aspect-[4/5] overflow-hidden">
-                <img
-                  src="/src/assets/images/dish_hot_pot_1791288849803.jpg"
-                  alt="Sizzling wok cuisine and bubbling hot pot at Dragon Wok Abbottabad"
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 filter brightness-95"
-                />
+              <div className="aspect-[4/5] overflow-hidden bg-stone-900">
+                <picture>
+                  <source srcSet="/images/dish_hot_pot.webp" type="image/webp" />
+                  <img
+                    src="/images/dish_hot_pot.jpg"
+                    alt="Sizzling wok cuisine and bubbling hot pot at Dragon Wok Abbottabad"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = '/images/hero_wok_fire.jpg';
+                    }}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 filter brightness-95"
+                  />
+                </picture>
               </div>
 
               {/* Scrim and Overlay Tag */}
