@@ -6,6 +6,14 @@ import { useOrder } from '../context/OrderContext';
 export const FeaturedDishes: React.FC = () => {
   const { addItem } = useOrder();
 
+  const getDishFallback = (name: string) => {
+    const lower = name.toLowerCase();
+    if (lower.includes('chowmein')) return '/images/dish_chowmein.jpg';
+    if (lower.includes('momo')) return '/images/dish_momos.jpg';
+    if (lower.includes('hot pot')) return '/images/dish_hot_pot.jpg';
+    return '/images/hero_wok_fire.jpg';
+  };
+
   return (
     <section className="py-24 bg-[#15171c] relative border-t border-b border-stone-800/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -41,7 +49,7 @@ export const FeaturedDishes: React.FC = () => {
                   referrerPolicy="no-referrer"
                   onError={(e) => {
                     e.currentTarget.onerror = null;
-                    e.currentTarget.src = '/images/hero_wok_fire.jpg';
+                    e.currentTarget.src = getDishFallback(dish.name);
                   }}
                   className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 filter brightness-95"
                 />
