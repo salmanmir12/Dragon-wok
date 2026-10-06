@@ -1,0 +1,6 @@
+{
+  "name": "Dragon Wok Abbottabad",
+  "description": "Authentic Chinese-inspired cuisine, chowmein, fried rice, momos, soups and more at Jadoon Plaza Phase 1, Mandian, Abbottabad.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
