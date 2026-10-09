@@ -34,13 +34,22 @@ export const Navbar: React.FC = () => {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
-          {/* Zone 1: Single text wordmark */}
+          {/* Zone 1: Logo & Name */}
           <div className="flex items-center gap-3">
             <a
               href="#home"
-              className="group flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d97706] rounded-md"
+              aria-label="Dragon Wok Home"
+              className="group flex items-center gap-2.5 sm:gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d97706] rounded-lg"
             >
-              <span className="font-serif-brand text-xl sm:text-2xl font-bold tracking-wider text-white group-hover:text-[#f59e0b] transition-colors">
+              <picture>
+                <source srcSet="/images/dragon_wok_logo.webp" type="image/webp" />
+                <img
+                  src="/images/dragon_wok_logo.jpg"
+                  alt="Dragon Wok Logo"
+                  className="h-9 w-9 sm:h-11 sm:w-11 rounded-full object-cover border-2 border-amber-500/40 shadow-md group-hover:border-amber-400 group-hover:scale-105 transition-all duration-300"
+                />
+              </picture>
+              <span className="font-serif-brand text-lg sm:text-2xl font-bold tracking-wider text-white group-hover:text-[#f59e0b] transition-colors">
                 DRAGON WOK
               </span>
             </a>

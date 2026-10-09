@@ -15,7 +15,15 @@ export const Footer: React.FC = () => {
           
           {/* Brand, Tagline & Social Icons */}
           <div className="md:col-span-5 space-y-4">
-            <a href="#home" className="inline-block">
+            <a href="#home" className="inline-flex items-center gap-3 group">
+              <picture>
+                <source srcSet="/images/dragon_wok_logo.webp" type="image/webp" />
+                <img
+                  src="/images/dragon_wok_logo.jpg"
+                  alt="Dragon Wok Logo"
+                  className="w-10 h-10 rounded-full object-cover border border-amber-500/40 shadow-md group-hover:scale-105 transition-transform"
+                />
+              </picture>
               <span className="font-serif-brand text-2xl font-bold tracking-wider text-white">
                 DRAGON WOK
               </span>

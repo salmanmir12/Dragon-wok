@@ -356,9 +356,16 @@ export const GALLERY_ITEMS = [
   },
   {
     id: 'gal-7',
-    title: 'Dining Atmosphere',
+    title: 'Modern Dining Space',
     category: 'Restaurant',
-    image: '/images/hero_wok_fire.jpg',
-    description: 'Welcoming dining ambiance at Jadoon Plaza Phase 1.'
+    image: '/images/restaurant_interior.jpg',
+    description: 'Modern, clean, and welcoming interior dining space at Jadoon Plaza Phase 1.'
+  },
+  {
+    id: 'gal-8',
+    title: 'Restaurant Front & Entrance',
+    category: 'Restaurant',
+    image: '/images/restaurant_exterior.jpg',
+    description: 'Exterior storefront of Dragon Wok Abbottabad at Jadoon Plaza Phase 1.'
   }
 ];

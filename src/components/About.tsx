@@ -38,15 +38,15 @@ export const About: React.FC = () => {
             <div className="relative rounded-2xl overflow-hidden border border-stone-800 bg-stone-900 shadow-2xl group">
               <div className="aspect-[4/5] overflow-hidden bg-stone-900">
                 <picture>
-                  <source srcSet="/images/dish_hot_pot.webp" type="image/webp" />
+                  <source srcSet="/images/restaurant_interior.webp" type="image/webp" />
                   <img
-                    src="/images/dish_hot_pot.jpg"
-                    alt="Sizzling wok cuisine and bubbling hot pot at Dragon Wok Abbottabad"
+                    src="/images/restaurant_interior.jpg"
+                    alt="Modern interior dining space and seating area at Dragon Wok Abbottabad"
                     loading="lazy"
                     referrerPolicy="no-referrer"
                     onError={(e) => {
                       e.currentTarget.onerror = null;
-                      e.currentTarget.src = '/images/hero_wok_fire.jpg';
+                      e.currentTarget.src = '/images/dish_hot_pot.jpg';
                     }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 filter brightness-95"
                   />
@@ -60,14 +60,14 @@ export const About: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs uppercase tracking-widest text-amber-400 font-semibold">
-                      Signature Tradition
+                      Modern Dining Space
                     </p>
                     <p className="font-serif-brand text-lg text-white font-bold">
-                      WOK • FIRE • FLAVOR
+                      COMFORT • AMBIANCE • FAMILY
                     </p>
                   </div>
                   <div className="w-10 h-10 rounded-full bg-[#991b1b]/30 border border-[#b91c1c]/50 flex items-center justify-center">
-                    <Flame className="w-5 h-5 text-amber-400" />
+                    <Sparkles className="w-5 h-5 text-amber-400" />
                   </div>
                 </div>
               </div>

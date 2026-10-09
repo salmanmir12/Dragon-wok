@@ -10,16 +10,17 @@ export const Hero: React.FC = () => {
       {/* Background Image with Cinematic Scrim */}
       <div className="absolute inset-0 z-0 bg-[#121316]">
         <picture>
-          <source srcSet="/images/hero_wok_fire.webp" type="image/webp" />
+          <source srcSet="/images/restaurant_exterior.webp" type="image/webp" />
           <img
-            src="/images/hero_wok_fire.jpg"
-            alt="Chinese wok stir-frying over high flames with golden steam in Dragon Wok Abbottabad"
+            src="/images/restaurant_exterior.jpg"
+            alt="Front exterior view of Dragon Wok restaurant at Jadoon Plaza Phase 1, Abbottabad"
             referrerPolicy="no-referrer"
             loading="eager"
             fetchPriority="high"
             onError={(e) => {
               // Hide broken image frame gracefully if image fails
-              e.currentTarget.style.opacity = '0';
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = '/images/hero_wok_fire.jpg';
             }}
             className="w-full h-full object-cover object-center scale-105 filter brightness-[0.4] contrast-[1.1] transition-transform duration-1000"
           />
