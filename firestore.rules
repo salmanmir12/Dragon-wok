@@ -1,0 +1,132 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Bootstrapped Admin: user email from runtime (dragonwok74@gmail.com with verified email) or /admins/{uid} document
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email == 'dragonwok74@gmail.com' && request.auth.token.email_verified == true)
+      );
+    }
+
+    // Staff member check
+    function isStaff() {
+      return isSignedIn() && (
+        isAdmin() ||
+        exists(/databases/$(database)/documents/staff/$(request.auth.uid))
+      );
+    }
+
+    // 1. Admins Collection
+    match /admins/{adminId} {
+      allow read: if isValidId(adminId) && isAdmin();
+      allow write: if isValidId(adminId) && isAdmin();
+    }
+
+    // 2. Staff Collection
+    match /staff/{staffId} {
+      allow read: if isValidId(staffId) && (isAdmin() || (isSignedIn() && request.auth.uid == staffId));
+      allow write: if isValidId(staffId) && isAdmin();
+    }
+
+    // 3. User Profiles
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      allow create: if isValidId(userId) && isSignedIn() && (request.auth.uid == userId || isAdmin())
+        && incoming().userId == userId
+        && incoming().email is string
+        && incoming().name is string
+        && incoming().name.size() <= 100;
+
+      allow update: if isValidId(userId) && isSignedIn() && (request.auth.uid == userId || isAdmin())
+        && incoming().userId == existing().userId;
+
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // 4. Orders Collection
+    match /orders/{orderId} {
+      // Single order get: owner, staff, admin, or tracking with orderId
+      allow get: if isValidId(orderId) && (
+        (isSignedIn() && (resource.data.userId == request.auth.uid || isStaff() || isAdmin())) ||
+        resource.data.orderId == orderId
+      );
+
+      // List orders: enforce user isolation unless staff/admin
+      allow list: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isStaff() ||
+        isAdmin()
+      );
+
+      // Create order: authenticated customer or guest
+      allow create: if isValidId(orderId)
+        && incoming().orderId is string
+        && incoming().customerName is string
+        && incoming().customerName.size() <= 100
+        && incoming().customerPhone is string
+        && incoming().customerPhone.size() <= 25
+        && incoming().orderType in ['delivery', 'pickup']
+        && incoming().items is list
+        && incoming().items.size() > 0
+        && incoming().items.size() <= 50
+        && incoming().total is number
+        && incoming().total >= 0
+        && incoming().status in ['Pending', 'Confirmed', 'Preparing', 'Ready', 'Out for Delivery', 'Completed', 'Cancelled']
+        && (
+          (isSignedIn() && incoming().userId == request.auth.uid) ||
+          incoming().userId == 'guest'
+        );
+
+      // Update order: Staff/Admin can update status; Admin can update everything
+      allow update: if isValidId(orderId) && (
+        isAdmin() ||
+        (
+          isStaff() &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+          incoming().status in ['Pending', 'Confirmed', 'Preparing', 'Ready', 'Out for Delivery', 'Completed', 'Cancelled']
+        )
+      );
+
+      allow delete: if isValidId(orderId) && isAdmin();
+    }
+
+    // 5. Menu Items
+    match /menu_items/{itemId} {
+      allow read: if true;
+      allow write: if isValidId(itemId) && isAdmin();
+    }
+
+    // 6. Restaurant Settings
+    match /restaurant_settings/{settingId} {
+      allow read: if true;
+      allow write: if isValidId(settingId) && isAdmin();
+    }
+  }
+}

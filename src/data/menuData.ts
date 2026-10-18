@@ -10,6 +10,8 @@ export interface MenuItem {
   isPopular?: boolean;
   image?: string;
   note?: string;
+  available?: boolean;
+  badge?: string;
 }
 
 export interface SpecialDeal {

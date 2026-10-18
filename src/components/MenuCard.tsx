@@ -162,7 +162,11 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
           )}
         </div>
 
-        {item.price !== undefined ? (
+        {item.available === false ? (
+          <span className="text-xs font-bold text-rose-400 bg-rose-950/60 border border-rose-800/80 px-2.5 py-1.5 rounded-lg">
+            Out of Stock
+          </span>
+        ) : item.price !== undefined ? (
           <button
             onClick={handleAddToCart}
             className="flex items-center gap-1.5 py-2.5 px-3.5 text-xs font-semibold uppercase tracking-wider text-white bg-stone-800 hover:bg-[#991b1b] rounded-lg transition-colors shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 whitespace-nowrap"

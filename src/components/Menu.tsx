@@ -3,6 +3,7 @@ import { Search, UtensilsCrossed, X } from 'lucide-react';
 import { MENU_ITEMS, SPECIAL_DEALS, MenuItem } from '../data/menuData';
 import { MenuCard } from './MenuCard';
 import { DealCard } from './DealCard';
+import { useMenu } from '../context/MenuContext';
 
 type CategoryFilter =
   | 'All'
@@ -32,11 +33,36 @@ const CATEGORIES: CategoryFilter[] = [
 ];
 
 export const Menu: React.FC = () => {
+  const { menuItems } = useMenu();
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
 
+  const activeMenuItems = useMemo(() => {
+    if (menuItems && menuItems.length > 0) {
+      return menuItems.map((m) => {
+        const staticMatch = MENU_ITEMS.find((s) => s.id === m.id);
+        return {
+          id: m.id,
+          name: m.name,
+          category: m.category as any,
+          price: m.price,
+          familyPrice: m.familyPrice,
+          familyLabel: staticMatch?.familyLabel,
+          ingredients: staticMatch?.ingredients,
+          isSignature: staticMatch?.isSignature,
+          isPopular: staticMatch?.isPopular,
+          image: m.image || staticMatch?.image,
+          note: m.description || staticMatch?.note,
+          available: m.available,
+          badge: m.badge,
+        };
+      });
+    }
+    return MENU_ITEMS;
+  }, [menuItems]);
+
   const filteredItems = useMemo(() => {
-    let items = MENU_ITEMS;
+    let items = activeMenuItems;
 
     if (activeCategory !== 'All' && activeCategory !== 'Deals') {
       items = items.filter((item) => item.category === activeCategory);

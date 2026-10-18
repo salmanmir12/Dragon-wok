@@ -11,28 +11,61 @@ import {
   Clock,
   AlertCircle,
   CheckCircle2,
+  ExternalLink,
+  Lock,
 } from 'lucide-react';
+import { doc, setDoc } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useOrder } from '../context/OrderContext';
+import { useAuth } from '../context/AuthContext';
+import { useMenu } from '../context/MenuContext';
 import { generateWhatsAppOrderUrl } from '../utils/whatsapp';
+import { Link } from 'react-router-dom';
 
 export const CheckoutModal: React.FC = () => {
   const {
     isCheckoutOpen,
     setIsCheckoutOpen,
     items,
-    totalPrice,
     restaurantStatus,
     customerDetails,
     setCustomerDetails,
     clearCart,
   } = useOrder();
 
-  const [step, setStep] = useState<'form' | 'confirm'>('form');
+  const { user, profile, setAuthModalOpen, setAuthModalView } = useAuth();
+  const { validateCartItems } = useMenu();
+
+  const [step, setStep] = useState<'form' | 'confirm' | 'success'>('form');
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [placingOrder, setPlacingOrder] = useState(false);
+  const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
+
+  // Validate cart items & calculate server-verified pricing
+  const validatedPricing = validateCartItems(
+    items.map((i) => ({ id: i.id, quantity: i.quantity, portionLabel: i.portionLabel }))
+  );
+
+  const finalDeliveryFee = customerDetails.orderType === 'Delivery' ? validatedPricing.deliveryFee : 0;
+  const finalTotal = validatedPricing.subtotal + finalDeliveryFee;
+
+  // Pre-fill user profile information if available
+  useEffect(() => {
+    if (profile && !customerDetails.name && !customerDetails.phone) {
+      setCustomerDetails((prev) => ({
+        ...prev,
+        name: profile.name || prev.name,
+        phone: profile.phone || prev.phone,
+        address: profile.addresses && profile.addresses.length > 0 ? profile.addresses[0] : prev.address,
+      }));
+    }
+  }, [profile]);
 
   useEffect(() => {
     if (isCheckoutOpen) {
-      setStep('form');
+      if (step !== 'success') {
+        setStep('form');
+      }
       setErrors({});
       document.body.style.overflow = 'hidden';
     } else {
@@ -64,7 +97,7 @@ export const CheckoutModal: React.FC = () => {
     }
 
     if (customerDetails.orderType === 'Delivery' && !customerDetails.address.trim()) {
-      newErrors.address = 'Please enter your delivery address.';
+      newErrors.address = 'Please enter your delivery address in Abbottabad.';
     }
 
     setErrors(newErrors);
@@ -74,19 +107,54 @@ export const CheckoutModal: React.FC = () => {
     }
   };
 
+  // Confirm and persist real order into Firestore
+  const handlePlaceOrder = async () => {
+    setPlacingOrder(true);
+    setErrors({});
+
+    try {
+      const uniqueOrderNumber = `DW-${Math.floor(100000 + Math.random() * 900000)}`;
+      const orderDocRef = doc(db, 'orders', uniqueOrderNumber);
+
+      const orderPayload = {
+        orderId: uniqueOrderNumber,
+        userId: user ? user.uid : 'guest',
+        customerName: customerDetails.name.trim(),
+        customerPhone: customerDetails.phone.trim(),
+        orderType: customerDetails.orderType.toLowerCase() as 'delivery' | 'pickup',
+        deliveryAddress: customerDetails.orderType === 'Delivery' ? customerDetails.address.trim() : '',
+        notes: customerDetails.notes.trim() || '',
+        items: validatedPricing.validatedItems,
+        subtotal: validatedPricing.subtotal,
+        deliveryFee: finalDeliveryFee,
+        total: finalTotal,
+        status: 'Pending',
+        paymentMethod: 'cod',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      await setDoc(orderDocRef, orderPayload);
+
+      setPlacedOrderId(uniqueOrderNumber);
+      clearCart();
+      setStep('success');
+    } catch (err: any) {
+      console.error('Order creation error:', err);
+      handleFirestoreError(err, OperationType.CREATE, 'orders');
+    } finally {
+      setPlacingOrder(false);
+    }
+  };
+
   const handleSendToWhatsApp = () => {
     const whatsappUrl = generateWhatsAppOrderUrl(
       customerDetails,
       items,
-      totalPrice,
+      finalTotal,
       !restaurantStatus.isOpen
     );
-
-    // Open WhatsApp in a new tab/window
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-
-    // Optionally close checkout and keep cart or let user know
-    setIsCheckoutOpen(false);
   };
 
   return (
@@ -112,190 +180,170 @@ export const CheckoutModal: React.FC = () => {
                 <ArrowLeft className="w-5 h-5" />
               </button>
             )}
-            <div>
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-amber-400 block">
-                {step === 'form' ? 'Step 1 of 2' : 'Step 2 of 2'}
-              </span>
-              <h3 className="font-serif-brand text-xl sm:text-2xl font-bold text-white">
-                {step === 'form' ? 'Checkout Details' : 'Ready to Order?'}
-              </h3>
-            </div>
+            <h3 className="font-serif-brand text-xl font-bold text-white">
+              {step === 'form' && 'Order Checkout'}
+              {step === 'confirm' && 'Review & Confirm Order'}
+              {step === 'success' && 'Order Placed Successfully!'}
+            </h3>
           </div>
 
           <button
             onClick={() => setIsCheckoutOpen(false)}
-            className="p-2 text-stone-400 hover:text-white rounded-lg hover:bg-stone-800 transition-colors"
-            aria-label="Close Checkout"
+            className="p-1.5 text-stone-400 hover:text-white hover:bg-stone-800 rounded-lg transition-colors"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Closed warning banner if closed */}
-        {!restaurantStatus.isOpen && (
-          <div className="mb-6 bg-rose-950/50 border border-rose-800/80 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-rose-200">
-            <Clock className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+        {/* Closed warning banner */}
+        {!restaurantStatus.isOpen && step !== 'success' && (
+          <div className="mb-5 bg-amber-950/40 border border-amber-800/60 rounded-xl p-3.5 flex items-start gap-3 text-amber-200 text-xs">
+            <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <strong className="font-semibold block text-white mb-0.5">
-                Restaurant Currently Closed (12:00 PM – 2:00 AM)
-              </strong>
-              Your order can be prepared once Dragon Wok opens at 12:00 PM. You can still send your pre-order to WhatsApp now.
+              <p className="font-semibold text-amber-300">Restaurant is currently closed</p>
+              <p className="text-amber-200/80 mt-0.5">
+                Our kitchen opens at 12:00 PM (PKT). Your order will be placed as a priority pre-order!
+              </p>
             </div>
           </div>
         )}
 
-        {/* STEP 1: Customer Form */}
-        {step === 'form' ? (
-          <form onSubmit={handleValidateAndProceed} noValidate className="space-y-4">
-            {/* Customer Name */}
-            <div>
-              <label
-                htmlFor="checkout-name"
-                className="block text-xs uppercase tracking-wider font-semibold text-stone-300 mb-1.5"
-              >
-                Customer Name <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <User className="w-4 h-4 text-stone-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  id="checkout-name"
-                  type="text"
-                  value={customerDetails.name}
-                  onChange={(e) =>
-                    setCustomerDetails((prev) => ({ ...prev, name: e.target.value }))
-                  }
-                  placeholder="e.g. Ali Khan"
-                  className={`w-full bg-stone-900 border rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder-stone-500 focus:outline-none focus:ring-1 ${
-                    errors.name
-                      ? 'border-rose-500 focus:ring-rose-500'
-                      : 'border-stone-800 focus:border-amber-500 focus:ring-amber-500'
-                  }`}
-                />
-              </div>
-              {errors.name && (
-                <p className="flex items-center gap-1 text-xs text-rose-400 mt-1">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span>{errors.name}</span>
-                </p>
-              )}
-            </div>
+        {/* Member login prompt banner if guest */}
+        {!user && step === 'form' && (
+          <div className="mb-5 p-3 rounded-xl bg-stone-900 border border-stone-800 flex items-center justify-between text-xs">
+            <span className="text-stone-300">Have a Dragon Wok account?</span>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthModalView('login');
+                setAuthModalOpen(true);
+              }}
+              className="text-amber-400 font-semibold hover:underline"
+            >
+              Sign In to auto-fill details
+            </button>
+          </div>
+        )}
 
-            {/* Phone Number */}
+        {/* STEP 1: FORM */}
+        {step === 'form' && (
+          <form onSubmit={handleValidateAndProceed} className="space-y-4">
+            {/* Fulfillment Type Toggle */}
             <div>
-              <label
-                htmlFor="checkout-phone"
-                className="block text-xs uppercase tracking-wider font-semibold text-stone-300 mb-1.5"
-              >
-                Phone Number <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <Phone className="w-4 h-4 text-stone-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  id="checkout-phone"
-                  type="tel"
-                  value={customerDetails.phone}
-                  onChange={(e) =>
-                    setCustomerDetails((prev) => ({ ...prev, phone: e.target.value }))
-                  }
-                  placeholder="e.g. 0310 1234567"
-                  className={`w-full bg-stone-900 border rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder-stone-500 focus:outline-none focus:ring-1 ${
-                    errors.phone
-                      ? 'border-rose-500 focus:ring-rose-500'
-                      : 'border-stone-800 focus:border-amber-500 focus:ring-amber-500'
-                  }`}
-                />
-              </div>
-              {errors.phone && (
-                <p className="flex items-center gap-1 text-xs text-rose-400 mt-1">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span>{errors.phone}</span>
-                </p>
-              )}
-            </div>
-
-            {/* Delivery or Pickup */}
-            <div>
-              <label className="block text-xs uppercase tracking-wider font-semibold text-stone-300 mb-1.5">
-                Order Type <span className="text-rose-500">*</span>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-stone-400 mb-2">
+                Order Type
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() =>
-                    setCustomerDetails((prev) => ({ ...prev, orderType: 'Delivery' }))
-                  }
-                  className={`py-2.5 px-4 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all flex items-center justify-center gap-2 border ${
+                  onClick={() => setCustomerDetails((prev) => ({ ...prev, orderType: 'Delivery' }))}
+                  className={`py-3 px-4 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                     customerDetails.orderType === 'Delivery'
-                      ? 'bg-[#991b1b] text-white border-red-700 shadow-sm'
-                      : 'bg-stone-900 text-stone-300 border-stone-800 hover:text-white hover:bg-stone-800'
+                      ? 'bg-[#991b1b] border-amber-500/50 text-white shadow-md'
+                      : 'bg-stone-900 border-stone-800 text-stone-400 hover:text-white'
                   }`}
                 >
                   <MapPin className="w-4 h-4" />
-                  <span>Delivery</span>
+                  <span>Delivery (+Rs. {validatedPricing.deliveryFee})</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setCustomerDetails((prev) => ({ ...prev, orderType: 'Pickup' }))
-                  }
-                  className={`py-2.5 px-4 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all flex items-center justify-center gap-2 border ${
+                  onClick={() => setCustomerDetails((prev) => ({ ...prev, orderType: 'Pickup' }))}
+                  className={`py-3 px-4 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                     customerDetails.orderType === 'Pickup'
-                      ? 'bg-[#991b1b] text-white border-red-700 shadow-sm'
-                      : 'bg-stone-900 text-stone-300 border-stone-800 hover:text-white hover:bg-stone-800'
+                      ? 'bg-[#991b1b] border-amber-500/50 text-white shadow-md'
+                      : 'bg-stone-900 border-stone-800 text-stone-400 hover:text-white'
                   }`}
                 >
                   <ShoppingBag className="w-4 h-4" />
-                  <span>Pickup</span>
+                  <span>Pickup / Takeaway</span>
                 </button>
               </div>
             </div>
 
-            {/* Delivery Address (only if Delivery) */}
+            {/* Customer Name */}
+            <div>
+              <label htmlFor="checkout-name" className="block text-xs font-medium text-stone-300 mb-1">
+                Your Full Name <span className="text-amber-400">*</span>
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" />
+                <input
+                  id="checkout-name"
+                  type="text"
+                  value={customerDetails.name}
+                  onChange={(e) => {
+                    setCustomerDetails((prev) => ({ ...prev, name: e.target.value }));
+                    if (errors.name) setErrors((prev) => ({ ...prev, name: '' }));
+                  }}
+                  placeholder="e.g. Hamza Khan"
+                  className={`w-full bg-stone-900 border ${
+                    errors.name ? 'border-rose-500' : 'border-stone-800'
+                  } rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder-stone-500 focus:outline-none focus:border-amber-500`}
+                />
+              </div>
+              {errors.name && <p className="text-rose-400 text-xs mt-1">{errors.name}</p>}
+            </div>
+
+            {/* Phone Number */}
+            <div>
+              <label htmlFor="checkout-phone" className="block text-xs font-medium text-stone-300 mb-1">
+                Phone Number (WhatsApp Active) <span className="text-amber-400">*</span>
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500" />
+                <input
+                  id="checkout-phone"
+                  type="tel"
+                  value={customerDetails.phone}
+                  onChange={(e) => {
+                    setCustomerDetails((prev) => ({ ...prev, phone: e.target.value }));
+                    if (errors.phone) setErrors((prev) => ({ ...prev, phone: '' }));
+                  }}
+                  placeholder="0310 1234567"
+                  className={`w-full bg-stone-900 border ${
+                    errors.phone ? 'border-rose-500' : 'border-stone-800'
+                  } rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder-stone-500 focus:outline-none focus:border-amber-500`}
+                />
+              </div>
+              {errors.phone && <p className="text-rose-400 text-xs mt-1">{errors.phone}</p>}
+            </div>
+
+            {/* Delivery Address */}
             {customerDetails.orderType === 'Delivery' && (
               <div>
-                <label
-                  htmlFor="checkout-address"
-                  className="block text-xs uppercase tracking-wider font-semibold text-stone-300 mb-1.5"
-                >
-                  Delivery Address <span className="text-rose-500">*</span>
+                <label htmlFor="checkout-address" className="block text-xs font-medium text-stone-300 mb-1">
+                  Delivery Address in Abbottabad <span className="text-amber-400">*</span>
                 </label>
                 <div className="relative">
-                  <MapPin className="w-4 h-4 text-stone-500 absolute left-3.5 top-3" />
+                  <MapPin className="absolute left-3 top-3 w-4 h-4 text-stone-500" />
                   <textarea
                     id="checkout-address"
                     rows={2}
                     value={customerDetails.address}
-                    onChange={(e) =>
-                      setCustomerDetails((prev) => ({ ...prev, address: e.target.value }))
-                    }
-                    placeholder="House/Street, Area (e.g. Mandian, Abbottabad)"
-                    className={`w-full bg-stone-900 border rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-stone-500 focus:outline-none focus:ring-1 resize-none ${
-                      errors.address
-                        ? 'border-rose-500 focus:ring-rose-500'
-                        : 'border-stone-800 focus:border-amber-500 focus:ring-amber-500'
-                    }`}
+                    onChange={(e) => {
+                      setCustomerDetails((prev) => ({ ...prev, address: e.target.value }));
+                      if (errors.address) setErrors((prev) => ({ ...prev, address: '' }));
+                    }}
+                    placeholder="House/flat #, Street, Near landmark, Abbottabad"
+                    className={`w-full bg-stone-900 border ${
+                      errors.address ? 'border-rose-500' : 'border-stone-800'
+                    } rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-stone-500 focus:outline-none focus:border-amber-500 resize-none`}
                   />
                 </div>
-                {errors.address && (
-                  <p className="flex items-center gap-1 text-xs text-rose-400 mt-1">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    <span>{errors.address}</span>
-                  </p>
-                )}
+                {errors.address && <p className="text-rose-400 text-xs mt-1">{errors.address}</p>}
               </div>
             )}
 
-            {/* Additional Notes */}
+            {/* Special Instructions */}
             <div>
-              <label
-                htmlFor="checkout-notes"
-                className="block text-xs uppercase tracking-wider font-semibold text-stone-300 mb-1.5"
-              >
+              <label htmlFor="checkout-notes" className="block text-xs font-medium text-stone-300 mb-1">
                 Special Instructions (Optional)
               </label>
               <div className="relative">
-                <FileText className="w-4 h-4 text-stone-500 absolute left-3.5 top-3" />
+                <FileText className="absolute left-3 top-3 w-4 h-4 text-stone-500" />
                 <textarea
                   id="checkout-notes"
                   rows={2}
@@ -303,40 +351,43 @@ export const CheckoutModal: React.FC = () => {
                   onChange={(e) =>
                     setCustomerDetails((prev) => ({ ...prev, notes: e.target.value }))
                   }
-                  placeholder="e.g. Less spicy please, call when arrived..."
-                  className="w-full bg-stone-900 border border-stone-800 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-stone-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 resize-none"
+                  placeholder="e.g. Less spicy please, extra hot sauce, call when arrived..."
+                  className="w-full bg-stone-900 border border-stone-800 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-stone-500 focus:outline-none focus:border-amber-500 resize-none"
                 />
               </div>
             </div>
 
-            {/* Total and Submit */}
+            {/* Pricing Summary & Review Button */}
             <div className="pt-4 border-t border-stone-800 flex items-center justify-between">
               <div>
-                <span className="text-xs text-stone-400 uppercase font-semibold">Subtotal</span>
-                <p className="font-serif-brand text-xl font-bold text-amber-400 tabular-nums">
-                  Rs. {totalPrice.toLocaleString()}
+                <span className="text-xs text-stone-400 uppercase font-semibold">Total to Pay</span>
+                <p className="font-serif-brand text-xl font-bold text-amber-400">
+                  Rs. {finalTotal.toLocaleString()}
                 </p>
+                <span className="text-[10px] text-stone-500">Cash on Delivery</span>
               </div>
 
               <button
                 type="submit"
-                className="inline-flex items-center gap-2 bg-[#991b1b] hover:bg-[#b91c1c] text-white py-3 px-6 rounded-lg font-semibold text-xs uppercase tracking-wider transition-all shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+                className="bg-[#991b1b] hover:bg-[#b91c1c] text-white py-3 px-6 rounded-lg font-semibold text-xs uppercase tracking-wider transition shadow-md"
               >
-                <span>Continue to Review</span>
+                Review Order Details
               </button>
             </div>
           </form>
-        ) : (
-          /* STEP 2: Confirmation Screen */
+        )}
+
+        {/* STEP 2: REVIEW & CONFIRM */}
+        {step === 'confirm' && (
           <div className="space-y-5">
             <p className="text-xs text-stone-400 leading-relaxed">
-              Review your order details below. Once confirmed, this will launch WhatsApp with a pre-filled message ready to send to Dragon Wok.
+              Please review your order summary. Once confirmed, your order will be directly saved into Dragon Wok's live kitchen system.
             </p>
 
-            {/* Customer Summary Box */}
+            {/* Customer Details Box */}
             <div className="bg-stone-900/80 border border-stone-800 rounded-xl p-4 text-xs space-y-1.5">
               <div className="flex justify-between">
-                <span className="text-stone-400">Name:</span>
+                <span className="text-stone-400">Customer:</span>
                 <span className="text-white font-semibold">{customerDetails.name}</span>
               </div>
               <div className="flex justify-between">
@@ -347,10 +398,10 @@ export const CheckoutModal: React.FC = () => {
                 <span className="text-stone-400">Order Type:</span>
                 <span className="text-amber-400 font-semibold">{customerDetails.orderType}</span>
               </div>
-              {customerDetails.orderType === 'Delivery' && customerDetails.address && (
+              {customerDetails.orderType === 'Delivery' && (
                 <div className="flex justify-between">
                   <span className="text-stone-400">Address:</span>
-                  <span className="text-white font-semibold max-w-[200px] text-right truncate">
+                  <span className="text-white font-semibold text-right max-w-[220px] truncate">
                     {customerDetails.address}
                   </span>
                 </div>
@@ -358,50 +409,141 @@ export const CheckoutModal: React.FC = () => {
               {customerDetails.notes && (
                 <div className="flex justify-between pt-1 border-t border-stone-800">
                   <span className="text-stone-400">Notes:</span>
-                  <span className="text-stone-200 italic">{customerDetails.notes}</span>
+                  <span className="text-stone-300 italic">{customerDetails.notes}</span>
                 </div>
               )}
             </div>
 
-            {/* Items Summary Box */}
+            {/* Order Items Breakdown */}
             <div className="bg-stone-900/80 border border-stone-800 rounded-xl p-4 max-h-48 overflow-y-auto space-y-2 text-xs">
               <div className="text-[11px] font-semibold uppercase tracking-wider text-stone-400 mb-2">
-                Order Items ({items.length})
+                Order Items ({validatedPricing.validatedItems.length})
               </div>
-              {items.map((item) => (
-                <div key={item.id} className="flex justify-between items-center text-stone-300">
-                  <span className="truncate pr-2">
-                    {item.quantity} × {item.name}
+              {validatedPricing.validatedItems.map((item, idx) => (
+                <div key={idx} className="flex justify-between items-center text-stone-300">
+                  <span>
+                    {item.quantity}x {item.name} {item.portionLabel && `(${item.portionLabel})`}
                   </span>
-                  <span className="text-white font-semibold tabular-nums shrink-0">
+                  <span className="font-semibold text-white">
                     Rs. {(item.price * item.quantity).toLocaleString()}
                   </span>
                 </div>
               ))}
-              <div className="pt-2 border-t border-stone-800 flex justify-between items-baseline font-bold text-sm">
-                <span className="text-white uppercase text-xs">Subtotal</span>
-                <span className="text-amber-400 text-base tabular-nums">
-                  Rs. {totalPrice.toLocaleString()}
-                </span>
+
+              <div className="pt-2 border-t border-stone-800 space-y-1 text-xs">
+                <div className="flex justify-between text-stone-400">
+                  <span>Subtotal:</span>
+                  <span>Rs. {validatedPricing.subtotal.toLocaleString()}</span>
+                </div>
+                {customerDetails.orderType === 'Delivery' && (
+                  <div className="flex justify-between text-stone-400">
+                    <span>Delivery Fee:</span>
+                    <span>Rs. {validatedPricing.deliveryFee}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-baseline font-bold text-sm pt-1 border-t border-stone-800">
+                  <span className="text-white uppercase text-xs">Total Amount</span>
+                  <span className="text-amber-400 text-base">
+                    Rs. {finalTotal.toLocaleString()}
+                  </span>
+                </div>
               </div>
             </div>
 
+            {/* Payment Method Notice */}
+            <div className="p-3 rounded-lg bg-stone-950 border border-stone-800 text-xs text-stone-400 flex items-center justify-between">
+              <span>Payment Method:</span>
+              <span className="font-bold text-white">
+                {customerDetails.orderType === 'Delivery' ? 'Cash on Delivery (COD)' : 'Pay at Counter'}
+              </span>
+            </div>
+
             {/* Actions */}
-            <div className="pt-3 space-y-2.5">
+            <div className="pt-2 space-y-2.5">
               <button
-                onClick={handleSendToWhatsApp}
-                className="w-full inline-flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-stone-950 py-3.5 px-6 rounded-lg font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-emerald-950/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                type="button"
+                onClick={handlePlaceOrder}
+                disabled={placingOrder}
+                className="w-full py-3.5 px-6 rounded-lg font-bold text-xs uppercase tracking-wider bg-[#991b1b] hover:bg-[#b91c1c] text-white transition shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                <Send className="w-4 h-4 text-stone-950" />
-                <span>Send Order on WhatsApp</span>
+                {placingOrder ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Confirm & Place Order</span>
+                  </>
+                )}
               </button>
 
               <button
+                type="button"
                 onClick={() => setStep('form')}
                 className="w-full py-2.5 text-xs uppercase font-semibold text-stone-400 hover:text-white"
               >
                 Go Back and Edit Details
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 3: SUCCESS CONFIRMATION */}
+        {step === 'success' && (
+          <div className="space-y-6 text-center py-2">
+            <div className="w-16 h-16 rounded-full bg-emerald-950/80 border-2 border-emerald-500/80 text-emerald-400 mx-auto flex items-center justify-center shadow-lg">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+
+            <div>
+              <h4 className="font-serif-brand text-2xl font-bold text-white mb-1">
+                Order Received!
+              </h4>
+              <p className="text-xs text-stone-400">
+                Your order is confirmed and sent to Dragon Wok kitchen.
+              </p>
+            </div>
+
+            {/* Reference Box */}
+            <div className="bg-stone-900/90 border border-stone-800 rounded-xl p-4 text-xs space-y-2">
+              <div className="text-stone-400">Your Order Reference ID:</div>
+              <div className="font-mono text-2xl font-bold text-amber-400 tracking-wider">
+                {placedOrderId}
+              </div>
+              <div className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-amber-950/60 border border-amber-600/60 text-amber-300">
+                🟡 Status: Pending (Kitchen Queue)
+              </div>
+            </div>
+
+            <p className="text-xs text-stone-400">
+              For instant confirmation and updates, send your prefilled order summary to Dragon Wok on WhatsApp.
+            </p>
+
+            {/* Action Buttons */}
+            <div className="space-y-3 pt-2">
+              <button
+                onClick={handleSendToWhatsApp}
+                className="w-full py-3.5 px-6 rounded-lg font-bold text-xs uppercase tracking-wider bg-[#25D366] hover:bg-[#20bd5a] text-stone-950 transition shadow-lg flex items-center justify-center gap-2"
+              >
+                <Send className="w-4 h-4 text-stone-950" />
+                <span>Send Summary on WhatsApp (+92 310 0968734)</span>
+              </button>
+
+              <div className="flex gap-2">
+                <Link
+                  to="/account"
+                  onClick={() => setIsCheckoutOpen(false)}
+                  className="flex-1 py-2.5 px-3 rounded-lg border border-stone-700 bg-stone-900 hover:bg-stone-800 text-stone-200 text-xs font-semibold transition text-center"
+                >
+                  Track in My Account
+                </Link>
+
+                <button
+                  onClick={() => setIsCheckoutOpen(false)}
+                  className="flex-1 py-2.5 px-3 rounded-lg border border-stone-800 bg-stone-950 hover:bg-stone-900 text-stone-400 hover:text-white text-xs font-semibold transition"
+                >
+                  Done / Close
+                </button>
+              </div>
             </div>
           </div>
         )}
