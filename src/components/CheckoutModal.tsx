@@ -44,7 +44,14 @@ export const CheckoutModal: React.FC = () => {
 
   // Validate cart items & calculate server-verified pricing
   const validatedPricing = validateCartItems(
-    items.map((i) => ({ id: i.id, quantity: i.quantity, portionLabel: i.portionLabel }))
+    items.map((i) => ({
+      id: i.id,
+      name: i.name,
+      price: i.price,
+      quantity: i.quantity,
+      category: i.category,
+      portionLabel: i.portionLabel,
+    }))
   );
 
   const finalDeliveryFee = customerDetails.orderType === 'Delivery' ? validatedPricing.deliveryFee : 0;
@@ -127,14 +134,19 @@ export const CheckoutModal: React.FC = () => {
         orderType: (customerDetails.orderType || 'Pickup').toLowerCase() as 'delivery' | 'pickup',
         deliveryAddress: customerDetails.orderType === 'Delivery' ? (customerDetails.address || '').trim() : '',
         notes: (customerDetails.notes || '').trim(),
-        items: (validatedPricing.validatedItems || []).map((item) => ({
-          id: item.id,
-          name: item.name || 'Dish',
-          price: Number(item.price) || 0,
-          quantity: Number(item.quantity) || 1,
-          category: item.category || 'General',
-          portionLabel: item.portionLabel || null,
-        })),
+        items: (validatedPricing.validatedItems || []).map((item) => {
+          const itemPrice = Number(item.price) || 0;
+          const itemQty = Number(item.quantity) || 1;
+          return {
+            id: item.id,
+            name: item.name || 'Dish',
+            price: itemPrice,
+            quantity: itemQty,
+            category: item.category || 'General',
+            portionLabel: item.portionLabel || null,
+            itemTotal: itemPrice * itemQty,
+          };
+        }),
         subtotal: Number(validatedPricing.subtotal) || 0,
         deliveryFee: Number(finalDeliveryFee) || 0,
         total: Number(finalTotal) || 0,

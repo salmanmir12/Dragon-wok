@@ -9,7 +9,7 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { MENU_ITEMS, MenuItem as DefaultMenuItem } from '../data/menuData';
+import { MENU_ITEMS, SPECIAL_DEALS, MenuItem as DefaultMenuItem } from '../data/menuData';
 
 export interface DynamicMenuItem {
   id: string;
@@ -45,8 +45,23 @@ interface MenuContextType {
   updateSettings: (newSettings: Partial<RestaurantSettings>) => Promise<void>;
   seedDefaultMenu: () => Promise<number>;
   getItemById: (id: string) => DynamicMenuItem | undefined;
-  validateCartItems: (cartItems: { id: string; quantity: number; portionLabel?: string }[]) => {
-    validatedItems: { id: string; name: string; price: number; quantity: number; category: string; portionLabel?: string | null }[];
+  validateCartItems: (cartItems: {
+    id: string;
+    quantity: number;
+    name?: string;
+    price?: number;
+    category?: string;
+    portionLabel?: string;
+  }[]) => {
+    validatedItems: {
+      id: string;
+      name: string;
+      price: number;
+      quantity: number;
+      category: string;
+      portionLabel?: string | null;
+      itemTotal: number;
+    }[];
     subtotal: number;
     deliveryFee: number;
     total: number;
@@ -192,29 +207,93 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const getItemById = (id: string) => {
-    return menuItems.find((m) => m.id === id);
+  const getItemById = (id: string): DynamicMenuItem | undefined => {
+    // 1. Direct match in Firestore dynamic menuItems
+    const direct = menuItems.find((m) => m.id === id);
+    if (direct) return direct;
+
+    // 2. Base ID match (strip portion suffixes like -regular or -family)
+    const baseId = id.replace(/-(regular|family)$/, '');
+    const baseMatch = menuItems.find((m) => m.id === baseId);
+    if (baseMatch) return baseMatch;
+
+    // 3. Fallback to default static MENU_ITEMS
+    const staticItem = MENU_ITEMS.find((s) => s.id === id || s.id === baseId);
+    if (staticItem) {
+      return {
+        id: staticItem.id,
+        name: staticItem.name,
+        category: staticItem.category,
+        price: staticItem.price ?? 0,
+        familyPrice: staticItem.familyPrice,
+        description: staticItem.note,
+        image: staticItem.image,
+        available: true,
+        badge: staticItem.badge,
+      };
+    }
+
+    // 4. Fallback to SPECIAL_DEALS
+    const dealItem = SPECIAL_DEALS.find((d) => d.id === id || d.id === baseId);
+    if (dealItem) {
+      return {
+        id: dealItem.id,
+        name: dealItem.title,
+        category: 'Deals',
+        price: dealItem.price,
+        description: dealItem.items.join(', '),
+        available: true,
+        badge: dealItem.badge,
+      };
+    }
+
+    return undefined;
   };
 
-  // Secure price calculation & validation against canonical catalog
-  const validateCartItems = (cartItems: { id: string; quantity: number; portionLabel?: string }[]) => {
+  // Secure price calculation & validation against canonical catalog and real cart state
+  const validateCartItems = (cartItems: {
+    id: string;
+    quantity: number;
+    name?: string;
+    price?: number;
+    category?: string;
+    portionLabel?: string;
+  }[]) => {
     const validatedItems = cartItems.map((cartItem) => {
       const match = getItemById(cartItem.id);
+
+      // Determine canonical price with family portion support
       let canonicalPrice = match ? match.price : 0;
       if (match && cartItem.portionLabel === 'Family' && match.familyPrice) {
         canonicalPrice = match.familyPrice;
       }
+
+      // If price from catalog is 0 but item in cart has a valid positive price, trust cart price
+      if (canonicalPrice <= 0 && typeof cartItem.price === 'number' && cartItem.price > 0) {
+        canonicalPrice = cartItem.price;
+      }
+
+      // Determine name (never return "Unknown Item" if cartItem.name exists)
+      let itemName = cartItem.name?.trim();
+      if (!itemName || itemName === 'Unknown Item') {
+        itemName = match ? match.name : 'Dragon Wok Dish';
+      }
+
+      const quantity = Math.max(1, Number(cartItem.quantity) || 1);
+      const itemTotal = canonicalPrice * quantity;
+
       return {
         id: cartItem.id,
-        name: match ? match.name : 'Unknown Item',
+        name: itemName,
         price: canonicalPrice,
-        quantity: Math.max(1, cartItem.quantity),
-        category: match ? match.category : 'General',
+        quantity,
+        category: match ? match.category : (cartItem.category || 'General'),
         portionLabel: cartItem.portionLabel || null,
+        itemTotal,
       };
     });
 
-    const subtotal = validatedItems.reduce((acc, curr) => acc + curr.price * curr.quantity, 0);
+    const subtotal = validatedItems.reduce((acc, curr) => acc + curr.itemTotal, 0);
     const deliveryFee = settings.deliveryFee || 150;
     const total = subtotal + deliveryFee;
 

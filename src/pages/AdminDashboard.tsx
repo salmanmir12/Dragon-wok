@@ -612,13 +612,13 @@ export const AdminDashboard: React.FC = () => {
 
                             <td className="p-4 text-stone-300 max-w-xs">
                               <div className="line-clamp-2">
-                                {order.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}
+                                {(order.items || []).map((i) => `${i.quantity || 1}x ${i.name || 'Dish'}`).join(', ') || 'No items listed'}
                               </div>
                             </td>
 
                             <td className="p-4">
                               <div className="font-bold text-white text-sm">
-                                Rs. {order.total?.toLocaleString()}
+                                Rs. {(order.total ?? order.subtotal ?? 0).toLocaleString()}
                               </div>
                               <div className="text-[10px] text-stone-500 uppercase">
                                 {order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Counter'}

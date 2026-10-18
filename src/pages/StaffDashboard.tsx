@@ -165,8 +165,9 @@ export const StaffDashboard: React.FC = () => {
           {[
             { id: 'active', label: 'Active Kitchen Orders' },
             { id: 'Pending', label: '🟡 New / Pending' },
-            { id: 'Preparing', label: '🍳 In Wok / Preparing' },
-            { id: 'Ready', label: '🥡 Ready' },
+            { id: 'Confirmed', label: '👍 Accepted' },
+            { id: 'Preparing', label: '🍳 In Wok / Cooking' },
+            { id: 'Ready', label: '🥡 Ready & Packed' },
             { id: 'Out for Delivery', label: '🛵 Dispatched' },
             { id: 'Completed', label: '✅ Completed' },
             { id: 'all', label: 'All Orders' },
@@ -204,55 +205,77 @@ export const StaffDashboard: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredOrders.map((order) => {
+              const orderDate = new Date(order.createdAt).toLocaleDateString('en-US', {
+                timeZone: 'Asia/Karachi',
+                month: 'short',
+                day: 'numeric',
+              });
               const orderTime = new Date(order.createdAt).toLocaleTimeString('en-US', {
                 timeZone: 'Asia/Karachi',
                 hour: '2-digit',
                 minute: '2-digit',
               });
 
+              const calculatedSubtotal = order.subtotal ?? (order.items || []).reduce((acc, i) => acc + (Number(i.price || 0) * Number(i.quantity || 1)), 0);
+              const calculatedTotal = order.total ?? (calculatedSubtotal + (order.deliveryFee || 0));
+
               return (
                 <div
                   key={order.id}
                   className={`bg-[#181a20] rounded-xl border ${
                     order.status === 'Pending'
-                      ? 'border-amber-500 animate-pulse'
+                      ? 'border-amber-500 shadow-amber-950/30'
+                      : order.status === 'Confirmed'
+                      ? 'border-emerald-500/70 shadow-emerald-950/20'
                       : order.status === 'Preparing'
-                      ? 'border-purple-500/70'
+                      ? 'border-purple-500/70 shadow-purple-950/20'
                       : 'border-stone-800'
-                  } p-5 flex flex-col justify-between shadow-xl`}
+                  } p-5 flex flex-col justify-between shadow-xl transition-all`}
                 >
                   <div>
                     {/* Top Meta */}
                     <div className="flex items-center justify-between pb-3 border-b border-stone-800 text-xs">
-                      <span className="font-mono font-bold text-amber-400 text-sm">
-                        {order.orderId}
-                      </span>
-                      <span className="text-stone-400">{orderTime}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-amber-400 text-sm">
+                          {order.orderId}
+                        </span>
+                        {order.status === 'Pending' && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 animate-pulse">
+                            NEW
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-stone-400 font-mono text-[11px]">{orderDate} • {orderTime}</span>
                     </div>
 
                     {/* Customer Info */}
-                    <div className="py-3 border-b border-stone-800/60 text-xs space-y-1">
+                    <div className="py-3 border-b border-stone-800/60 text-xs space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-white text-sm">{order.customerName}</span>
+                        <span className="font-bold text-white text-sm">{order.customerName || 'Customer'}</span>
                         <a
                           href={`tel:${order.customerPhone}`}
-                          className="text-amber-400 hover:underline flex items-center gap-1 font-mono"
+                          className="text-amber-400 hover:underline flex items-center gap-1 font-mono font-medium"
                         >
-                          <Phone className="w-3 h-3" />
-                          <span>{order.customerPhone}</span>
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>{order.customerPhone || 'N/A'}</span>
                         </a>
                       </div>
-                      <div className="text-stone-400">
+                      <div className="text-stone-300">
                         {order.orderType === 'delivery' ? (
-                          <span className="text-amber-300 font-medium flex items-center gap-1">
-                            <Bike className="w-3 h-3" /> Delivery: {order.deliveryAddress}
+                          <span className="text-amber-300 font-medium flex items-start gap-1">
+                            <Bike className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
+                            <span>Delivery: {order.deliveryAddress || 'Address in Abbottabad'}</span>
                           </span>
                         ) : (
-                          <span className="text-cyan-300 font-medium">🥡 Pickup / Takeaway</span>
+                          <span className="text-cyan-300 font-medium flex items-center gap-1">
+                            <span>🥡</span>
+                            <span>Pickup / Takeaway at Restaurant</span>
+                          </span>
                         )}
                       </div>
                       {order.notes && (
-                        <div className="p-2 rounded bg-stone-900 border border-stone-800 text-stone-300 italic">
+                        <div className="p-2 rounded bg-stone-900 border border-stone-800 text-stone-300 text-[11px] italic">
+                          <span className="text-amber-400 font-medium not-italic block">Special Instructions:</span>
                           "{order.notes}"
                         </div>
                       )}
@@ -260,88 +283,155 @@ export const StaffDashboard: React.FC = () => {
 
                     {/* Items List */}
                     <div className="py-3 space-y-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
-                        Kitchen Items ({order.items.length})
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 flex items-center justify-between">
+                        <span>Kitchen Items ({order.items?.length || 0})</span>
+                        <span className="text-stone-500">Price</span>
                       </span>
-                      {order.items.map((item, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-start justify-between text-xs bg-stone-900/60 p-2 rounded border border-stone-800/80"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded bg-amber-500/20 text-amber-400 font-bold flex items-center justify-center text-xs">
-                              {item.quantity}
-                            </span>
-                            <span className="font-bold text-white">{item.name}</span>
-                            {item.portionLabel && (
-                              <span className="text-[10px] text-amber-300 bg-amber-950/60 px-1 py-0.5 rounded">
-                                {item.portionLabel}
+                      {order.items?.map((item, idx) => {
+                        const itemPrice = Number(item.price) || 0;
+                        const itemQty = Number(item.quantity) || 1;
+                        const itemTotal = (item as any).itemTotal ?? (itemPrice * itemQty);
+                        return (
+                          <div
+                            key={idx}
+                            className="flex items-start justify-between text-xs bg-stone-900/80 p-2.5 rounded-lg border border-stone-800/90 gap-2"
+                          >
+                            <div className="flex items-start gap-2">
+                              <span className="w-5 h-5 rounded bg-amber-500/20 text-amber-400 font-bold flex items-center justify-center text-xs shrink-0 mt-0.5">
+                                {itemQty}x
                               </span>
-                            )}
+                              <div>
+                                <span className="font-bold text-white block leading-tight">
+                                  {item.name || 'Dragon Wok Dish'}
+                                </span>
+                                <div className="flex items-center gap-2 mt-1">
+                                  {item.portionLabel && (
+                                    <span className="text-[10px] text-amber-300 bg-amber-950/70 border border-amber-900/50 px-1.5 py-0.2 rounded font-medium">
+                                      {item.portionLabel}
+                                    </span>
+                                  )}
+                                  <span className="text-[11px] text-stone-400 font-mono">
+                                    @ Rs. {itemPrice.toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-amber-400 font-bold font-mono shrink-0 text-xs">
+                              Rs. {itemTotal.toLocaleString()}
+                            </span>
                           </div>
-                          <span className="text-stone-400">Rs. {(item.price * item.quantity).toLocaleString()}</span>
-                        </div>
-                      ))}
+                        );
+                      })}
+                    </div>
+
+                    {/* Order Financials Breakdown */}
+                    <div className="py-2.5 px-3 rounded-lg bg-stone-900/90 border border-stone-800 mb-3 space-y-1 text-xs">
+                      <div className="flex justify-between text-stone-400">
+                        <span>Subtotal:</span>
+                        <span className="font-mono text-stone-200">
+                          Rs. {calculatedSubtotal.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-stone-400">
+                        <span>Delivery Fee:</span>
+                        <span className="font-mono text-stone-200">
+                          {order.deliveryFee && order.deliveryFee > 0 ? `Rs. ${order.deliveryFee.toLocaleString()}` : 'Rs. 0 (Free/Pickup)'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-white font-bold pt-1.5 border-t border-stone-800">
+                        <span className="text-xs uppercase tracking-wider text-amber-400">Total Amount:</span>
+                        <span className="font-mono text-base text-amber-400 font-extrabold">
+                          Rs. {calculatedTotal.toLocaleString()}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
                   {/* Actions / Status Transitions */}
-                  <div className="pt-4 border-t border-stone-800">
+                  <div className="pt-3 border-t border-stone-800">
                     <div className="flex items-center justify-between text-xs mb-3">
                       <span className="text-stone-400">Current Status:</span>
-                      <span className="font-bold text-amber-300">{order.status}</span>
+                      <span className={`font-bold px-2 py-0.5 rounded text-[11px] uppercase ${
+                        order.status === 'Pending' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                        order.status === 'Confirmed' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                        order.status === 'Preparing' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
+                        order.status === 'Ready' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' :
+                        order.status === 'Out for Delivery' ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30' :
+                        order.status === 'Completed' ? 'bg-green-500/20 text-green-300 border border-green-500/30' :
+                        'bg-stone-800 text-stone-400'
+                      }`}>
+                        {order.status}
+                      </span>
                     </div>
 
                     <div className="space-y-2">
+                      {/* Step 1: Accept Order (Required before Cooking) */}
                       {order.status === 'Pending' && (
                         <button
                           disabled={updatingId === order.id}
-                          onClick={() => handleUpdateStatus(order.id, 'Preparing')}
-                          className="w-full py-2 bg-purple-700 hover:bg-purple-600 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                          onClick={() => handleUpdateStatus(order.id, 'Confirmed')}
+                          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition shadow-lg shadow-emerald-950/40"
+                          title="Accept customer order into kitchen"
                         >
-                          <Flame className="w-3.5 h-3.5" />
+                          <Check className="w-4 h-4" />
+                          <span>Accept Order</span>
+                        </button>
+                      )}
+
+                      {/* Step 2: Start Cooking (Only after acceptance) */}
+                      {order.status === 'Confirmed' && (
+                        <button
+                          disabled={updatingId === order.id}
+                          onClick={() => handleUpdateStatus(order.id, 'Preparing')}
+                          className="w-full py-2.5 bg-purple-700 hover:bg-purple-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition shadow-lg shadow-purple-950/40"
+                          title="Begin wok preparation and cooking"
+                        >
+                          <Flame className="w-4 h-4" />
                           <span>Start Cooking (Wok)</span>
                         </button>
                       )}
 
+                      {/* Step 3: Food Ready & Packed */}
                       {order.status === 'Preparing' && (
                         <button
                           disabled={updatingId === order.id}
                           onClick={() => handleUpdateStatus(order.id, 'Ready')}
-                          className="w-full py-2 bg-cyan-700 hover:bg-cyan-600 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                          className="w-full py-2.5 bg-cyan-700 hover:bg-cyan-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition shadow-lg shadow-cyan-950/40"
                         >
-                          <PackageCheck className="w-3.5 h-3.5" />
+                          <PackageCheck className="w-4 h-4" />
                           <span>Mark Food Ready & Packed</span>
                         </button>
                       )}
 
+                      {/* Step 4: Dispatch or Handover */}
                       {order.status === 'Ready' && (
                         <button
                           disabled={updatingId === order.id}
                           onClick={() => handleUpdateStatus(order.id, order.orderType === 'delivery' ? 'Out for Delivery' : 'Completed')}
-                          className="w-full py-2 bg-orange-700 hover:bg-orange-600 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                          className="w-full py-2.5 bg-orange-700 hover:bg-orange-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition shadow-lg shadow-orange-950/40"
                         >
                           {order.orderType === 'delivery' ? (
                             <>
-                              <Bike className="w-3.5 h-3.5" />
+                              <Bike className="w-4 h-4" />
                               <span>Dispatch (Out for Delivery)</span>
                             </>
                           ) : (
                             <>
-                              <Check className="w-3.5 h-3.5" />
-                              <span>Handover to Customer</span>
+                              <Check className="w-4 h-4" />
+                              <span>Handover to Customer (Complete)</span>
                             </>
                           )}
                         </button>
                       )}
 
+                      {/* Step 5: Mark Completed when delivered */}
                       {order.status === 'Out for Delivery' && (
                         <button
                           disabled={updatingId === order.id}
                           onClick={() => handleUpdateStatus(order.id, 'Completed')}
-                          className="w-full py-2 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                          className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition shadow-lg shadow-emerald-950/40"
                         >
-                          <Check className="w-3.5 h-3.5" />
+                          <Check className="w-4 h-4" />
                           <span>Mark Successfully Delivered</span>
                         </button>
                       )}
