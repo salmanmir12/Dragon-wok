@@ -15,7 +15,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db, removeUndefined, handleFirestoreError, OperationType } from '../firebase';
 import { useOrder } from '../context/OrderContext';
 import { useAuth } from '../context/AuthContext';
 import { useMenu } from '../context/MenuContext';
@@ -122,22 +122,30 @@ export const CheckoutModal: React.FC = () => {
       const orderPayload = {
         orderId: uniqueOrderNumber,
         userId: user ? user.uid : 'guest',
-        customerName: customerDetails.name.trim(),
-        customerPhone: customerDetails.phone.trim(),
-        orderType: customerDetails.orderType.toLowerCase() as 'delivery' | 'pickup',
-        deliveryAddress: customerDetails.orderType === 'Delivery' ? customerDetails.address.trim() : '',
-        notes: customerDetails.notes.trim() || '',
-        items: validatedPricing.validatedItems,
-        subtotal: validatedPricing.subtotal,
-        deliveryFee: finalDeliveryFee,
-        total: finalTotal,
+        customerName: (customerDetails.name || '').trim(),
+        customerPhone: (customerDetails.phone || '').trim(),
+        orderType: (customerDetails.orderType || 'Pickup').toLowerCase() as 'delivery' | 'pickup',
+        deliveryAddress: customerDetails.orderType === 'Delivery' ? (customerDetails.address || '').trim() : '',
+        notes: (customerDetails.notes || '').trim(),
+        items: (validatedPricing.validatedItems || []).map((item) => ({
+          id: item.id,
+          name: item.name || 'Dish',
+          price: Number(item.price) || 0,
+          quantity: Number(item.quantity) || 1,
+          category: item.category || 'General',
+          portionLabel: item.portionLabel || null,
+        })),
+        subtotal: Number(validatedPricing.subtotal) || 0,
+        deliveryFee: Number(finalDeliveryFee) || 0,
+        total: Number(finalTotal) || 0,
         status: 'Pending',
         paymentMethod: 'cod',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
-      await setDoc(orderDocRef, orderPayload);
+      const cleanPayload = removeUndefined(orderPayload);
+      await setDoc(orderDocRef, cleanPayload);
 
       setPlacedOrderId(uniqueOrderNumber);
       clearCart();

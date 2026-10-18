@@ -46,7 +46,7 @@ interface MenuContextType {
   seedDefaultMenu: () => Promise<number>;
   getItemById: (id: string) => DynamicMenuItem | undefined;
   validateCartItems: (cartItems: { id: string; quantity: number; portionLabel?: string }[]) => {
-    validatedItems: { id: string; name: string; price: number; quantity: number; category: string; portionLabel?: string }[];
+    validatedItems: { id: string; name: string; price: number; quantity: number; category: string; portionLabel?: string | null }[];
     subtotal: number;
     deliveryFee: number;
     total: number;
@@ -210,7 +210,7 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
         price: canonicalPrice,
         quantity: Math.max(1, cartItem.quantity),
         category: match ? match.category : 'General',
-        portionLabel: cartItem.portionLabel,
+        portionLabel: cartItem.portionLabel || null,
       };
     });
 
