@@ -22,6 +22,7 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { StoredOrder } from './CustomerAccount';
 import { Link } from 'react-router-dom';
+import { triggerOrderConfirmation, buildCustomerWhatsAppConfirmationMessage } from '../utils/notificationService';
 
 export const StaffDashboard: React.FC = () => {
   const { user, isStaff, isAdmin, logout, setAuthModalOpen } = useAuth();
@@ -56,8 +57,12 @@ export const StaffDashboard: React.FC = () => {
     return () => unsub();
   }, [user, isStaff]);
 
-  // Update order status in Firestore
-  const handleUpdateStatus = async (orderDocId: string, newStatus: StoredOrder['status']) => {
+  // Update order status in Firestore and auto-trigger customer confirmation
+  const handleUpdateStatus = async (
+    orderDocId: string,
+    newStatus: StoredOrder['status'],
+    orderData?: StoredOrder
+  ) => {
     setUpdatingId(orderDocId);
     try {
       const orderRef = doc(db, 'orders', orderDocId);
@@ -65,6 +70,23 @@ export const StaffDashboard: React.FC = () => {
         status: newStatus,
         updatedAt: new Date().toISOString(),
       });
+
+      // Requirement 4: Auto-Confirmation Message Trigger when kitchen accepts order
+      if (newStatus === 'Confirmed' && orderData) {
+        const calculatedSubtotal = orderData.subtotal ?? (orderData.items || []).reduce((acc, i) => acc + (Number(i.price || 0) * Number(i.quantity || 1)), 0);
+        const calculatedTotal = orderData.total ?? (calculatedSubtotal + (orderData.deliveryFee || 0));
+
+        triggerOrderConfirmation({
+          orderId: orderData.orderId,
+          customerName: orderData.customerName,
+          customerPhone: orderData.customerPhone,
+          orderType: orderData.orderType,
+          total: calculatedTotal,
+          deliveryAddress: orderData.deliveryAddress,
+          newStatus: 'Confirmed',
+          itemsSummary: (orderData.items || []).map((i) => `${i.quantity}x ${i.name}`).join(', '),
+        }).catch((e) => console.warn('Auto confirmation trigger failed:', e));
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `orders/${orderDocId}`);
     } finally {
