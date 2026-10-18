@@ -32,7 +32,6 @@ import { CheckoutModal } from './components/CheckoutModal';
 import { ClosedRestaurantModal } from './components/ClosedRestaurantModal';
 import { FloatingCartButton } from './components/FloatingCartButton';
 import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton';
-import { Chatbot } from './components/Chatbot';
 import { AuthModal } from './components/auth/AuthModal';
 
 // Dedicated Dashboards
@@ -128,9 +127,6 @@ export default function App() {
 
               {/* Floating WhatsApp Quick Action Button */}
               <WhatsAppFloatingButton />
-
-              {/* Dragon Bot Assistant */}
-              <Chatbot />
             </div>
           </OrderProvider>
         </MenuProvider>

@@ -16,8 +16,9 @@ import {
   ExternalLink,
   Flame,
   ArrowLeft,
+  Search,
 } from 'lucide-react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useOrder } from '../context/OrderContext';
@@ -67,6 +68,35 @@ export const CustomerAccount: React.FC = () => {
   const [newAddress, setNewAddress] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMsg, setProfileMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Guest order lookup states
+  const [lookupOrderId, setLookupOrderId] = useState(searchParams.get('order') || '');
+  const [lookupResult, setLookupResult] = useState<StoredOrder | null>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+
+  const handleLookupOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lookupOrderId.trim()) return;
+    setLookupLoading(true);
+    setLookupError(null);
+    setLookupResult(null);
+
+    const cleanId = lookupOrderId.trim().toUpperCase();
+    try {
+      const orderRef = doc(db, 'orders', cleanId);
+      const snap = await getDoc(orderRef);
+      if (snap.exists()) {
+        setLookupResult({ id: snap.id, ...(snap.data() as Omit<StoredOrder, 'id'>) });
+      } else {
+        setLookupError(`Order reference "${cleanId}" was not found. Please verify the ID.`);
+      }
+    } catch (err: any) {
+      setLookupError(err.message || 'Error looking up order.');
+    } finally {
+      setLookupLoading(false);
+    }
+  };
 
   // Sync profile data to form
   useEffect(() => {
@@ -188,20 +218,23 @@ export const CustomerAccount: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#121316] text-white pt-28 pb-16 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
-        <div className="max-w-md w-full bg-[#181a20] rounded-2xl border border-stone-800 p-8 text-center shadow-2xl">
+      <div className="min-h-screen bg-[#121316] text-white pt-24 pb-16 px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center">
+        <div className="max-w-md w-full bg-[#181a20] rounded-2xl border border-stone-800 p-8 text-center shadow-2xl space-y-6">
           <picture>
             <source srcSet="/images/dragon_wok_logo.webp" type="image/webp" />
             <img
               src="/images/dragon_wok_logo.jpg"
               alt="Dragon Wok"
-              className="w-16 h-16 rounded-full mx-auto mb-4 border-2 border-amber-500/40 object-cover shadow-lg"
+              className="w-16 h-16 rounded-full mx-auto border-2 border-amber-500/40 object-cover shadow-lg"
             />
           </picture>
-          <h2 className="font-serif-brand text-2xl font-bold mb-2">Customer Account</h2>
-          <p className="text-stone-400 text-sm mb-6">
-            Sign in or create an account to view your live orders, order history, saved delivery addresses, and favorite dishes.
-          </p>
+          <div>
+            <h2 className="font-serif-brand text-2xl font-bold mb-1">Customer Account & Tracking</h2>
+            <p className="text-stone-400 text-xs">
+              Sign in to manage your orders & saved addresses, or track any guest order with your Reference ID.
+            </p>
+          </div>
+
           <div className="space-y-3">
             <button
               onClick={() => {
@@ -210,7 +243,7 @@ export const CustomerAccount: React.FC = () => {
               }}
               className="w-full py-3 bg-[#991b1b] hover:bg-[#b91c1c] text-white rounded-lg text-sm font-semibold tracking-wider uppercase transition shadow-lg"
             >
-              Sign In
+              Sign In to Your Account
             </button>
             <button
               onClick={() => {
@@ -219,16 +252,59 @@ export const CustomerAccount: React.FC = () => {
               }}
               className="w-full py-3 bg-stone-900 hover:bg-stone-800 border border-stone-700 text-stone-200 rounded-lg text-sm font-semibold tracking-wider uppercase transition"
             >
-              Create Account
+              Create New Account
             </button>
-            <Link
-              to="/"
-              className="inline-flex items-center gap-2 text-xs text-amber-400 hover:underline pt-2"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Dragon Wok Home</span>
-            </Link>
           </div>
+
+          {/* Guest Order Tracking Box */}
+          <div className="pt-4 border-t border-stone-800 text-left">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 block mb-2">
+              Track Guest Order
+            </span>
+            <form onSubmit={handleLookupOrder} className="flex gap-2">
+              <input
+                type="text"
+                placeholder="e.g. DW-123456"
+                value={lookupOrderId}
+                onChange={(e) => setLookupOrderId(e.target.value)}
+                className="flex-1 px-3 py-2 bg-stone-900 border border-stone-800 rounded-lg text-xs text-white placeholder-stone-500 focus:outline-none focus:border-amber-500 font-mono uppercase"
+              />
+              <button
+                type="submit"
+                disabled={lookupLoading}
+                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-stone-950 font-bold rounded-lg text-xs transition disabled:opacity-50"
+              >
+                {lookupLoading ? '...' : 'Track'}
+              </button>
+            </form>
+
+            {lookupError && (
+              <p className="text-rose-400 text-[11px] mt-2">{lookupError}</p>
+            )}
+
+            {lookupResult && (
+              <div className="mt-4 p-4 rounded-xl bg-stone-900 border border-amber-500/40 text-xs space-y-2 animate-fadeIn">
+                <div className="flex justify-between items-center">
+                  <span className="font-mono font-bold text-amber-400">{lookupResult.orderId}</span>
+                  {getStatusBadge(lookupResult.status)}
+                </div>
+                <div className="text-stone-300">
+                  Total: <strong className="text-white">Rs. {lookupResult.total?.toLocaleString()}</strong> • {lookupResult.orderType.toUpperCase()}
+                </div>
+                <div className="text-stone-400">
+                  {lookupResult.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 text-xs text-amber-400 hover:underline pt-2"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Dragon Wok Home</span>
+          </Link>
         </div>
       </div>
     );

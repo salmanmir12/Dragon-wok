@@ -38,6 +38,7 @@ export const CheckoutModal: React.FC = () => {
 
   const [step, setStep] = useState<'form' | 'confirm' | 'success'>('form');
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
 
@@ -109,7 +110,9 @@ export const CheckoutModal: React.FC = () => {
 
   // Confirm and persist real order into Firestore
   const handlePlaceOrder = async () => {
+    if (placingOrder) return; // Prevent duplicate clicks
     setPlacingOrder(true);
+    setSubmitError(null);
     setErrors({});
 
     try {
@@ -141,7 +144,10 @@ export const CheckoutModal: React.FC = () => {
       setStep('success');
     } catch (err: any) {
       console.error('Order creation error:', err);
-      handleFirestoreError(err, OperationType.CREATE, 'orders');
+      const userFriendlyMsg = err?.message?.includes('insufficient permissions')
+        ? 'Permission error: could not record order in database. Please check connection and try again.'
+        : (err?.message || 'Failed to place order. Please try again.');
+      setSubmitError(userFriendlyMsg);
     } finally {
       setPlacingOrder(false);
     }
@@ -371,7 +377,7 @@ export const CheckoutModal: React.FC = () => {
                 type="submit"
                 className="bg-[#991b1b] hover:bg-[#b91c1c] text-white py-3 px-6 rounded-lg font-semibold text-xs uppercase tracking-wider transition shadow-md"
               >
-                Review Order Details
+                Review & Place Order
               </button>
             </div>
           </form>
@@ -381,8 +387,19 @@ export const CheckoutModal: React.FC = () => {
         {step === 'confirm' && (
           <div className="space-y-5">
             <p className="text-xs text-stone-400 leading-relaxed">
-              Please review your order summary. Once confirmed, your order will be directly saved into Dragon Wok's live kitchen system.
+              Review your details below. When you click <strong>Place Order</strong>, your order will be validated and saved directly into Dragon Wok's live Firestore database and kitchen dashboard.
             </p>
+
+            {/* Error Banner if Firestore Save Failed */}
+            {submitError && (
+              <div className="p-3.5 rounded-xl bg-rose-950/70 border border-rose-800 text-rose-300 text-xs flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+                <div>
+                  <span className="font-bold block">Could not place order:</span>
+                  <span>{submitError}</span>
+                </div>
+              </div>
+            )}
 
             {/* Customer Details Box */}
             <div className="bg-stone-900/80 border border-stone-800 rounded-xl p-4 text-xs space-y-1.5">
@@ -464,14 +481,17 @@ export const CheckoutModal: React.FC = () => {
                 type="button"
                 onClick={handlePlaceOrder}
                 disabled={placingOrder}
-                className="w-full py-3.5 px-6 rounded-lg font-bold text-xs uppercase tracking-wider bg-[#991b1b] hover:bg-[#b91c1c] text-white transition shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full py-3.5 px-6 rounded-lg font-bold text-xs uppercase tracking-wider bg-[#991b1b] hover:bg-[#b91c1c] text-white transition shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {placingOrder ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Saving Order to Kitchen...</span>
+                  </>
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Confirm & Place Order</span>
+                    <span>Place Order (Cash on Delivery)</span>
                   </>
                 )}
               </button>
@@ -479,6 +499,7 @@ export const CheckoutModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setStep('form')}
+                disabled={placingOrder}
                 className="w-full py-2.5 text-xs uppercase font-semibold text-stone-400 hover:text-white"
               >
                 Go Back and Edit Details
@@ -496,10 +517,10 @@ export const CheckoutModal: React.FC = () => {
 
             <div>
               <h4 className="font-serif-brand text-2xl font-bold text-white mb-1">
-                Order Received!
+                Order Placed Successfully!
               </h4>
               <p className="text-xs text-stone-400">
-                Your order is confirmed and sent to Dragon Wok kitchen.
+                Your order is confirmed in Dragon Wok's live kitchen system.
               </p>
             </div>
 
@@ -510,40 +531,44 @@ export const CheckoutModal: React.FC = () => {
                 {placedOrderId}
               </div>
               <div className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-amber-950/60 border border-amber-600/60 text-amber-300">
-                🟡 Status: Pending (Kitchen Queue)
+                🟡 Initial Status: Pending (Received by Kitchen)
               </div>
             </div>
 
-            <p className="text-xs text-stone-400">
-              For instant confirmation and updates, send your prefilled order summary to Dragon Wok on WhatsApp.
+            <p className="text-xs text-stone-400 max-w-sm mx-auto">
+              Your order has been recorded. Our chef and kitchen staff have received the notification.
             </p>
 
-            {/* Action Buttons */}
-            <div className="space-y-3 pt-2">
+            {/* Optional Secondary WhatsApp Action */}
+            <div className="pt-3 border-t border-stone-800 space-y-2 text-left">
+              <div className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider text-center">
+                Optional Secondary Action
+              </div>
               <button
                 onClick={handleSendToWhatsApp}
-                className="w-full py-3.5 px-6 rounded-lg font-bold text-xs uppercase tracking-wider bg-[#25D366] hover:bg-[#20bd5a] text-stone-950 transition shadow-lg flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 rounded-xl font-bold text-xs uppercase tracking-wider bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/80 text-emerald-300 transition shadow flex items-center justify-center gap-2"
               >
-                <Send className="w-4 h-4 text-stone-950" />
-                <span>Send Summary on WhatsApp (+92 310 0968734)</span>
+                <Send className="w-4 h-4 text-emerald-400" />
+                <span>Send Order Details on WhatsApp (+92 310 0968734)</span>
               </button>
+            </div>
 
-              <div className="flex gap-2">
-                <Link
-                  to="/account"
-                  onClick={() => setIsCheckoutOpen(false)}
-                  className="flex-1 py-2.5 px-3 rounded-lg border border-stone-700 bg-stone-900 hover:bg-stone-800 text-stone-200 text-xs font-semibold transition text-center"
-                >
-                  Track in My Account
-                </Link>
+            {/* Navigation Buttons */}
+            <div className="flex gap-2 pt-1">
+              <Link
+                to="/account"
+                onClick={() => setIsCheckoutOpen(false)}
+                className="flex-1 py-2.5 px-3 rounded-lg border border-stone-700 bg-stone-900 hover:bg-stone-800 text-stone-200 text-xs font-semibold transition text-center"
+              >
+                Track in My Account
+              </Link>
 
-                <button
-                  onClick={() => setIsCheckoutOpen(false)}
-                  className="flex-1 py-2.5 px-3 rounded-lg border border-stone-800 bg-stone-950 hover:bg-stone-900 text-stone-400 hover:text-white text-xs font-semibold transition"
-                >
-                  Done / Close
-                </button>
-              </div>
+              <button
+                onClick={() => setIsCheckoutOpen(false)}
+                className="flex-1 py-2.5 px-3 rounded-lg border border-stone-800 bg-stone-950 hover:bg-stone-900 text-stone-400 hover:text-white text-xs font-semibold transition"
+              >
+                Back to Menu / Done
+              </button>
             </div>
           </div>
         )}
