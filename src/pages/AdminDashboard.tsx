@@ -342,11 +342,11 @@ export const AdminDashboard: React.FC = () => {
 
           <div className="flex items-center gap-3">
             <Link
-              to="/staff"
-              className="px-3.5 py-2 rounded-lg bg-stone-900 hover:bg-stone-800 border border-stone-800 text-xs font-semibold text-stone-300 transition flex items-center gap-1.5"
+              to="/kitchen"
+              className="px-3.5 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-xs font-semibold text-amber-300 transition flex items-center gap-1.5"
             >
               <ChefHat className="w-4 h-4 text-amber-400" />
-              <span>Kitchen Staff View</span>
+              <span>Kitchen Voice Terminal</span>
             </Link>
             <button
               onClick={logout}

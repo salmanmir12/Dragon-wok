@@ -9,24 +9,14 @@ import { AuthProvider } from './context/AuthContext';
 import { MenuProvider } from './context/MenuContext';
 import { OrderProvider } from './context/OrderContext';
 
-// Existing Website Components
+// Clean Single-Page Ordering Components (Flame On & KFC Style)
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { RatingBar } from './components/RatingBar';
-import { About } from './components/About';
-import { FeaturedDishes } from './components/FeaturedDishes';
 import { Menu } from './components/Menu';
-import { WhyDragonWok } from './components/WhyDragonWok';
-import { Deals } from './components/Deals';
-import { Gallery } from './components/Gallery';
-import { Reviews } from './components/Reviews';
-import { OrderCTA } from './components/OrderCTA';
-import { Location } from './components/Location';
-import { Contact } from './components/Contact';
-import { SocialSection } from './components/SocialSection';
 import { Footer } from './components/Footer';
 
-// Dynamic Cart, Checkout, WhatsApp & Chatbot
+// Real-time Shopping Cart & Checkout Modals
 import { CartDrawer } from './components/CartDrawer';
 import { CheckoutModal } from './components/CheckoutModal';
 import { ClosedRestaurantModal } from './components/ClosedRestaurantModal';
@@ -34,53 +24,23 @@ import { FloatingCartButton } from './components/FloatingCartButton';
 import { WhatsAppFloatingButton } from './components/WhatsAppFloatingButton';
 import { AuthModal } from './components/auth/AuthModal';
 
-// Dedicated Dashboards
+// Dedicated Dashboards & Kitchen Voice Alert Terminal
 import { CustomerAccount } from './pages/CustomerAccount';
 import { AdminDashboard } from './pages/AdminDashboard';
-import { StaffDashboard } from './pages/StaffDashboard';
+import { KitchenDashboard } from './pages/KitchenDashboard';
 
-// Main Landing Page Component (Preserves all existing sections)
+// Pure digital menu card & direct ordering layout (Eliminates blog posts, articles & extra detail sections)
 function HomePage() {
   return (
     <>
-      {/* 2. Hero */}
+      {/* 1. Fast Ordering Top Hero Banner */}
       <Hero />
 
-      {/* 3. Restaurant Rating / Trust Bar */}
+      {/* 2. Restaurant Rating & Abbottabad Delivery Trust Bar */}
       <RatingBar />
 
-      {/* 4. About Dragon Wok */}
-      <About />
-
-      {/* 5. Featured Dishes */}
-      <FeaturedDishes />
-
-      {/* 6. Complete Menu with Portion Selectors & Add to Cart */}
+      {/* 3. Central Digital Menu Card with Sticky Categories & Direct Ordering */}
       <Menu />
-
-      {/* 7. Why Dragon Wok */}
-      <WhyDragonWok />
-
-      {/* 8. Special Deals with Direct Cart Integration */}
-      <Deals />
-
-      {/* 9. Gallery */}
-      <Gallery />
-
-      {/* 10. Ratings / Reviews */}
-      <Reviews />
-
-      {/* 11. Order CTA */}
-      <OrderCTA />
-
-      {/* 12. Location */}
-      <Location />
-
-      {/* 13. Contact */}
-      <Contact />
-
-      {/* 14. Follow Dragon Wok Social Channels */}
-      <SocialSection />
     </>
   );
 }
@@ -91,41 +51,42 @@ export default function App() {
       <AuthProvider>
         <MenuProvider>
           <OrderProvider>
-            <div className="min-h-screen bg-[#121316] text-[#e5e7eb] flex flex-col font-sans selection:bg-[#991b1b] selection:text-white">
-              {/* Sticky Navigation with Business Hours & Role Badges */}
+            <div className="min-h-screen bg-[#101216] text-[#e5e7eb] flex flex-col font-sans selection:bg-[#991b1b] selection:text-white">
+              {/* Sticky Navigation with Business Hours, Cart Counter & Quick Links */}
               <Navbar />
 
               {/* Main Routing Area */}
               <main className="flex-1">
                 <Routes>
                   <Route path="/" element={<HomePage />} />
-                  <Route path="/account" element={<CustomerAccount />} />
+                  <Route path="/kitchen" element={<KitchenDashboard />} />
+                  <Route path="/staff" element={<KitchenDashboard />} />
                   <Route path="/admin" element={<AdminDashboard />} />
-                  <Route path="/staff" element={<StaffDashboard />} />
+                  <Route path="/account" element={<CustomerAccount />} />
                   {/* Catch-all to home */}
                   <Route path="*" element={<HomePage />} />
                 </Routes>
               </main>
 
-              {/* Footer */}
+              {/* Clean Restaurant Footer */}
               <Footer />
 
               {/* Authentication Modal */}
               <AuthModal />
 
-              {/* Interactive Shopping Cart Drawer */}
+              {/* Real-Time Shopping Cart Drawer */}
               <CartDrawer />
 
-              {/* Customer Checkout Form & Order Confirmation Modal */}
+              {/* Customer Checkout & Order Placement Modal */}
               <CheckoutModal />
 
-              {/* Closed Restaurant Entrance Notice */}
+              {/* Closed Restaurant Notice */}
               <ClosedRestaurantModal />
 
-              {/* Sticky / Floating Cart Button */}
+              {/* Sticky Floating Cart Button */}
               <FloatingCartButton />
 
-              {/* Floating WhatsApp Quick Action Button */}
+              {/* WhatsApp Quick Action Button */}
               <WhatsAppFloatingButton />
             </div>
           </OrderProvider>

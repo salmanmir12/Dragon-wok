@@ -77,7 +77,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 400, 
     familyPrice: 1500, 
     familyLabel: 'Family',
-    image: 'https://unsplash.com',
+    image: '/images/dish_hot_pot.jpg',
     isPopular: true 
   },
   { 
@@ -89,7 +89,7 @@ export const MENU_ITEMS: MenuItem[] = [
   },
 
   // --- CHICKEN MAIN COURSE ---
-  { id: 'ck-1', name: 'Chicken Manchurian', category: 'Chicken', price: 1400, image: 'https://unsplash.com', isPopular: true },
+  { id: 'ck-1', name: 'Chicken Manchurian', category: 'Chicken', price: 1400, image: '/images/hero_wok_fire.jpg', isPopular: true },
   { id: 'ck-2', name: 'Chicken Cashewnut', category: 'Chicken', price: 1400 },
   { id: 'ck-3', name: 'Chicken Chilli Dry', category: 'Chicken', price: 1400, isPopular: true },
   { id: 'ck-4', name: 'Kungpow Chicken', category: 'Chicken', price: 1400 },
@@ -119,7 +119,7 @@ export const MENU_ITEMS: MenuItem[] = [
     name: 'Chicken Chowmein', 
     category: 'Noodles', 
     price: 749,
-    image: 'https://unsplash.com',
+    image: '/images/dish_chowmein.jpg',
     isPopular: true 
   },
   { id: 'nd-2', name: 'Vegetable Chowmein', category: 'Noodles', price: 549 },
@@ -129,7 +129,7 @@ export const MENU_ITEMS: MenuItem[] = [
     name: 'Dragon Chowmein', 
     category: 'Noodles', 
     price: 849, 
-    image: 'https://unsplash.com',
+    image: '/images/dish_chowmein.jpg',
     isSignature: true,
     isPopular: true 
   },
@@ -141,7 +141,7 @@ export const MENU_ITEMS: MenuItem[] = [
     name: 'Fried Momos (1 Plate)', 
     category: 'Momos', 
     price: 550, 
-    image: 'https://unsplash.com',
+    image: '/images/dish_momos.jpg',
     isPopular: true 
   },
   { id: 'mo-3', name: 'Half Fried Momos', category: 'Momos', price: 550 },
@@ -157,7 +157,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 2500,
     isSignature: true,
     isPopular: true,
-    image: 'https://unsplash.com',
+    image: '/images/dish_hot_pot.jpg',
     ingredients: [
       'Noodles',
       'Sausages',
@@ -268,7 +268,7 @@ export const FEATURED_DISHES = [
     name: 'Dragon Chowmein',
     price: 849,
     category: 'Noodles',
-    image: 'https://unsplash.com',
+    image: '/images/dish_chowmein.jpg',
     badge: 'Signature Wok'
   },
   {
@@ -276,7 +276,7 @@ export const FEATURED_DISHES = [
     name: 'Chicken Chowmein',
     price: 749,
     category: 'Noodles',
-    image: 'https://unsplash.com',
+    image: '/images/dish_chowmein.jpg',
     badge: 'Local Favorite'
   },
   {
@@ -284,7 +284,7 @@ export const FEATURED_DISHES = [
     name: 'Fried Momos',
     price: 550,
     category: 'Momos',
-    image: 'https://unsplash.com',
+    image: '/images/dish_momos.jpg',
     badge: 'Crispy & Tender'
   },
   {
@@ -292,7 +292,7 @@ export const FEATURED_DISHES = [
     name: 'Hot & Sour Soup',
     price: 400,
     category: 'Soup',
-    image: 'https://unsplash.com',
+    image: '/images/dish_hot_pot.jpg',
     badge: 'Zesty & Classic'
   },
   {
@@ -300,7 +300,7 @@ export const FEATURED_DISHES = [
     name: 'Chicken Manchurian',
     price: 1400,
     category: 'Chicken',
-    image: 'https://unsplash.com',
+    image: '/images/hero_wok_fire.jpg',
     badge: 'Rich Sauté'
   },
   {
@@ -308,7 +308,7 @@ export const FEATURED_DISHES = [
     name: 'Szechwan Hot Pot',
     price: 2500,
     category: 'Hot Pot',
-    image: 'https://unsplash.com',
+    image: '/images/dish_hot_pot.jpg',
     badge: 'Masterpiece'
   }
 ];

@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 export const Navbar: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { totalCount, setIsCartOpen, restaurantStatus } = useOrder();
+  const { totalCount, totalPrice, setIsCartOpen, restaurantStatus } = useOrder();
   const { user, isAdmin, isStaff, setAuthModalOpen, setAuthModalView } = useAuth();
 
   useEffect(() => {
@@ -19,12 +19,9 @@ export const Navbar: React.FC = () => {
   }, []);
 
   const navLinks = [
-    { name: 'Home', href: '/#home' },
     { name: 'Menu', href: '/#menu' },
-    { name: 'About', href: '/#about' },
-    { name: 'Deals', href: '/#deals' },
-    { name: 'Gallery', href: '/#gallery' },
-    { name: 'Contact', href: '/#contact' },
+    { name: 'Deals & Combos', href: '/#menu' },
+    { name: 'Kitchen Station', href: '/kitchen' },
   ];
 
   return (
@@ -158,13 +155,13 @@ export const Navbar: React.FC = () => {
             {/* Shopping Cart Button */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="flex items-center gap-2 bg-[#991b1b] hover:bg-[#b91c1c] text-white px-3.5 py-2 text-xs font-semibold uppercase tracking-wider rounded-md transition-all shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d97706] whitespace-nowrap"
+              className="flex items-center gap-2 bg-[#991b1b] hover:bg-[#b91c1c] text-white px-4 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d97706] whitespace-nowrap"
             >
-              <ShoppingBag className="w-4 h-4" />
+              <ShoppingBag className="w-4 h-4 text-amber-300" />
               <span>Cart</span>
               {totalCount > 0 && (
-                <span className="ml-1 bg-amber-400 text-stone-950 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                  {totalCount}
+                <span className="ml-1 bg-amber-400 text-stone-950 text-[11px] font-mono font-bold px-2 py-0.5 rounded-full">
+                  {totalCount} • Rs. {totalPrice.toLocaleString()}
                 </span>
               )}
             </button>

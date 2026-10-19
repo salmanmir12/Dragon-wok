@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ShoppingBag, Flame, Sparkles, Plus, Minus } from 'lucide-react';
 import { MenuItem } from '../data/menuData';
 import { useOrder } from '../context/OrderContext';
@@ -27,64 +27,19 @@ export const getDishPhoto = (name: string, category?: string, customImage?: stri
 
 export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
   const { items: cartItems, addItem, updateQuantity } = useOrder();
-  const [selectedPortion, setSelectedPortion] = useState<'regular' | 'family'>('regular');
 
-  const hasDualPortion = item.price !== undefined && item.familyPrice !== undefined;
-  const isFamilyBowlOnly = !hasDualPortion && item.familyLabel === 'Family Bowl';
-
-  // Determine active target Cart Item ID based on portion selection
-  const currentCartId = hasDualPortion
-    ? selectedPortion === 'family'
-      ? `${item.id}-family`
-      : `${item.id}-regular`
-    : item.id;
-
-  const activeCartItem = cartItems.find((i) => i.id === currentCartId);
+  const activeCartItem = cartItems.find((i) => i.id === item.id);
   const cartQuantity = activeCartItem ? activeCartItem.quantity : 0;
-
-  const currentPrice = hasDualPortion
-    ? selectedPortion === 'family'
-      ? item.familyPrice!
-      : item.price!
-    : item.price;
+  const currentPrice = item.price;
 
   const handleAddToCart = () => {
     if (item.price === undefined) return;
-
-    if (hasDualPortion) {
-      if (selectedPortion === 'family') {
-        addItem({
-          id: `${item.id}-family`,
-          name: `${item.name} (${item.familyLabel || 'Family'})`,
-          price: item.familyPrice!,
-          category: item.category,
-          portionLabel: 'Family',
-        });
-      } else {
-        addItem({
-          id: `${item.id}-regular`,
-          name: `${item.name} (Regular)`,
-          price: item.price,
-          category: item.category,
-          portionLabel: 'Regular',
-        });
-      }
-    } else if (isFamilyBowlOnly) {
-      addItem({
-        id: item.id,
-        name: `${item.name} (Family Bowl)`,
-        price: item.price,
-        category: item.category,
-        portionLabel: 'Family Bowl',
-      });
-    } else {
-      addItem({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        category: item.category,
-      });
-    }
+    addItem({
+      id: item.id,
+      name: item.name,
+      price: Number(item.price) || 0,
+      category: item.category,
+    });
   };
 
   const photoUrl = getDishPhoto(item.name, item.category, item.image);
@@ -168,33 +123,6 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
             </p>
           )}
 
-          {/* Portion Selector for Dual-portion Dishes (e.g. Soups) */}
-          {hasDualPortion && (
-            <div className="mb-3 p-1 bg-stone-900 rounded-lg border border-stone-800 flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setSelectedPortion('regular')}
-                className={`flex-1 py-1.5 px-2 text-[11px] font-bold rounded-md transition-all ${
-                  selectedPortion === 'regular'
-                    ? 'bg-stone-800 text-white shadow-sm border border-stone-700'
-                    : 'text-stone-400 hover:text-stone-200'
-                }`}
-              >
-                Regular • Rs. {item.price?.toLocaleString()}
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedPortion('family')}
-                className={`flex-1 py-1.5 px-2 text-[11px] font-bold rounded-md transition-all ${
-                  selectedPortion === 'family'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
-                    : 'text-stone-400 hover:text-stone-200'
-                }`}
-              >
-                Family • Rs. {item.familyPrice?.toLocaleString()}
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
@@ -203,11 +131,7 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
         {/* Prominent Price */}
         <div>
           <div className="text-[10px] uppercase font-semibold tracking-wider text-stone-400">
-            {hasDualPortion
-              ? selectedPortion === 'family'
-                ? 'Family Portion'
-                : 'Regular Portion'
-              : item.familyLabel || 'Price'}
+            {item.familyLabel || 'Price'}
           </div>
           <div className="font-extrabold text-lg sm:text-xl text-white tabular-nums flex items-baseline gap-1">
             <span className="text-xs text-amber-400 font-bold">Rs.</span>
@@ -215,7 +139,7 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
           </div>
         </div>
 
-        {/* Action Controls (KFC style interactive quantity stepper or Add button) */}
+        {/* Action Controls (Flame On style interactive quantity stepper or Add button) */}
         <div>
           {item.available === false ? (
             <span className="text-xs font-semibold text-stone-500 bg-stone-900 px-3 py-2 rounded-xl border border-stone-800">
@@ -226,7 +150,7 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
               <div className="flex items-center bg-[#991b1b] rounded-xl p-1 shadow-lg shadow-red-950/50 border border-red-700">
                 <button
                   type="button"
-                  onClick={() => updateQuantity(currentCartId, -1)}
+                  onClick={() => updateQuantity(item.id, -1)}
                   className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-black/30 text-white transition active:scale-90"
                   title="Decrease quantity"
                   aria-label="Decrease quantity"
@@ -238,7 +162,7 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
                 </span>
                 <button
                   type="button"
-                  onClick={() => updateQuantity(currentCartId, 1)}
+                  onClick={() => updateQuantity(item.id, 1)}
                   className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-black/30 text-white transition active:scale-90"
                   title="Increase quantity"
                   aria-label="Increase quantity"

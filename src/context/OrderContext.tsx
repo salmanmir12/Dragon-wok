@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { checkIsRestaurantOpen, RestaurantStatus } from '../utils/businessHours';
+import { MENU_ITEMS, SPECIAL_DEALS } from '../data/menuData';
 
 export interface CartItem {
   id: string;
@@ -41,11 +42,23 @@ interface OrderContextType {
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
 export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Load persisted cart
+  // Load persisted cart with sanitization
   const [items, setItems] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem('dragonwok_order_cart');
-      return saved ? JSON.parse(saved) : [];
+      if (!saved) return [];
+      const parsed = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map((it: any) => ({
+          id: String(it.id),
+          name: String(it.name || 'Dish'),
+          price: Number(it.price) || 0,
+          quantity: Math.max(1, Number(it.quantity) || 1),
+          category: it.category,
+          portionLabel: it.portionLabel,
+        }))
+        .filter((it: CartItem) => it.id && it.price > 0);
     } catch {
       return [];
     }
@@ -114,19 +127,32 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const addItem = useCallback(
     (item: { id: string; name: string; price: number; category?: string; portionLabel?: string }) => {
+      let numPrice = Number(item.price) || 0;
+      if (numPrice <= 0) {
+        // Fallback recovery from static catalog
+        const baseId = item.id.replace(/-(regular|family)$/, '');
+        const matchedDish = MENU_ITEMS.find((m) => m.id === item.id || m.id === baseId);
+        if (matchedDish) {
+          numPrice = item.portionLabel === 'Family' && matchedDish.familyPrice ? matchedDish.familyPrice : (matchedDish.price || 0);
+        } else {
+          const matchedDeal = SPECIAL_DEALS.find((d) => d.id === item.id || d.id === baseId);
+          if (matchedDeal) numPrice = matchedDeal.price;
+        }
+      }
+
       setItems((prev) => {
         const existing = prev.find((i) => i.id === item.id);
         if (existing) {
           return prev.map((i) =>
-            i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+            i.id === item.id ? { ...i, quantity: i.quantity + 1, price: numPrice > 0 ? numPrice : i.price } : i
           );
         }
         return [
           ...prev,
           {
             id: item.id,
-            name: item.name,
-            price: item.price,
+            name: item.name || 'Dish',
+            price: numPrice,
             quantity: 1,
             category: item.category,
             portionLabel: item.portionLabel,
@@ -158,8 +184,11 @@ export const OrderProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const clearCart = useCallback(() => setItems([]), []);
 
-  const totalPrice = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const totalCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const totalPrice = items.reduce(
+    (sum, item) => sum + (Number(item.price) || 0) * Math.max(1, Number(item.quantity) || 1),
+    0
+  );
+  const totalCount = items.reduce((sum, item) => sum + Math.max(1, Number(item.quantity) || 1), 0);
 
   return (
     <OrderContext.Provider

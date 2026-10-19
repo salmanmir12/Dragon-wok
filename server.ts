@@ -10,90 +10,7 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json());
 
-// --- Requirement 5: Direct Google Sheets Integration Endpoint ---
-app.post('/api/orders/sync-sheet', async (req, res) => {
-  const order = req.body;
-
-  if (!order || !order.orderId) {
-    return res.status(400).json({ error: 'Missing orderId or order payload' });
-  }
-
-  console.log(`[Google Sheets Sync] Processing new order: ${order.orderId}`);
-
-  // Format spreadsheet row
-  const rowData = [
-    order.createdAt || new Date().toISOString(),
-    order.orderId,
-    order.customerName || 'Customer',
-    order.customerPhone || 'N/A',
-    order.orderType || 'delivery',
-    order.deliveryAddress || 'Abbottabad, Pakistan',
-    order.itemizedSummary || (Array.isArray(order.items) ? order.items.map((i: any) => `${i.quantity}x ${i.name}`).join(', ') : ''),
-    order.subtotal || 0,
-    order.deliveryFee || 0,
-    order.total || 0,
-    order.status || 'Pending',
-    order.paymentMethod || 'Cash on Delivery',
-    order.notes || '',
-  ];
-
-  const webhookUrl = process.env.GOOGLE_SHEETS_WEBHOOK_URL;
-  const sheetId = process.env.GOOGLE_SHEET_ID || 'SPREADSHEET_ID_PLACEHOLDER';
-
-  if (webhookUrl && webhookUrl.startsWith('https://')) {
-    try {
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'appendOrder',
-          spreadsheetId: sheetId,
-          order: {
-            ...order,
-            row: rowData,
-          },
-        }),
-      });
-
-      console.log(`[Google Sheets Sync] Webhook responded with status: ${response.status}`);
-      return res.json({
-        success: true,
-        message: 'Order appended to Google Sheets via Webhook',
-        orderId: order.orderId,
-        sheetId,
-      });
-    } catch (err: any) {
-      console.warn(`[Google Sheets Sync] Webhook dispatch error: ${err.message}`);
-    }
-  }
-
-  // Standalone / placeholder mode: logs formatted row ready for spreadsheet ingestion
-  console.log('[Google Sheets Sync] Row Ready for Spreadsheet Appending:');
-  console.table([
-    {
-      Timestamp: rowData[0],
-      OrderID: rowData[1],
-      Customer: rowData[2],
-      Phone: rowData[3],
-      Type: rowData[4],
-      Address: rowData[5],
-      Items: rowData[6],
-      Subtotal: rowData[7],
-      Delivery: rowData[8],
-      Total: rowData[9],
-      Status: rowData[10],
-      Payment: rowData[11],
-    },
-  ]);
-
-  return res.json({
-    success: true,
-    message: 'Order formatted and recorded for Google Sheets sync',
-    orderId: order.orderId,
-    sheetId,
-    rowData,
-  });
-});
+// Google Sheets sync removed per user request
 
 // --- Requirement 4: Auto-Confirmation Notification Dispatcher ---
 app.post('/api/orders/notify-status', async (req, res) => {
@@ -173,7 +90,6 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Dragon Wok server running on http://0.0.0.0:${PORT}`);
     console.log(`📍 Location Lock: Abbottabad, Pakistan exclusively`);
-    console.log(`📊 Google Sheets Endpoint: POST /api/orders/sync-sheet`);
     console.log(`🔔 Auto-Notification Endpoint: POST /api/orders/notify-status`);
   });
 }

@@ -9,7 +9,7 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { MENU_ITEMS, SPECIAL_DEALS, MenuItem as DefaultMenuItem } from '../data/menuData';
+import { MENU_ITEMS, SPECIAL_DEALS, FEATURED_DISHES, MenuItem as DefaultMenuItem } from '../data/menuData';
 
 export interface DynamicMenuItem {
   id: string;
@@ -247,6 +247,19 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
+    // 5. Fallback to FEATURED_DISHES
+    const featItem = FEATURED_DISHES.find((f) => f.id === id || f.id === baseId);
+    if (featItem) {
+      return {
+        id: featItem.id,
+        name: featItem.name,
+        category: featItem.category,
+        price: featItem.price,
+        available: true,
+        badge: featItem.badge,
+      };
+    }
+
     return undefined;
   };
 
@@ -262,15 +275,14 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const validatedItems = cartItems.map((cartItem) => {
       const match = getItemById(cartItem.id);
 
-      // Determine canonical price with family portion support
-      let canonicalPrice = match ? match.price : 0;
-      if (match && cartItem.portionLabel === 'Family' && match.familyPrice) {
-        canonicalPrice = match.familyPrice;
-      }
-
-      // If price from catalog is 0 but item in cart has a valid positive price, trust cart price
-      if (canonicalPrice <= 0 && typeof cartItem.price === 'number' && cartItem.price > 0) {
-        canonicalPrice = cartItem.price;
+      // Determine canonical price from active cart item, with catalog fallback
+      let canonicalPrice = typeof cartItem.price === 'number' && cartItem.price > 0 ? cartItem.price : 0;
+      if (canonicalPrice <= 0 && match) {
+        if (cartItem.portionLabel === 'Family' && match.familyPrice) {
+          canonicalPrice = match.familyPrice;
+        } else {
+          canonicalPrice = match.price || 0;
+        }
       }
 
       // Determine name (never return "Unknown Item" if cartItem.name exists)

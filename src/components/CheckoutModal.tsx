@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   Lock,
   ShieldCheck,
-  FileSpreadsheet,
 } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, removeUndefined } from '../firebase';
@@ -25,7 +24,6 @@ import {
   RESTAURANT_PICKUP_LOCATION,
   validateAbbottabadLocation,
 } from '../utils/abbottabadLocations';
-import { syncOrderToGoogleSheets } from '../utils/sheetsSync';
 
 export const CheckoutModal: React.FC = () => {
   const {
@@ -47,22 +45,29 @@ export const CheckoutModal: React.FC = () => {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
-  const [sheetsSynced, setSheetsSynced] = useState<boolean>(false);
+
+  // Accurately sum up (item.price * item.quantity) based on active cart
+  const activeCartSubtotal = items.reduce(
+    (sum, item) => sum + (Math.max(0, Number(item.price)) || 0) * Math.max(1, Number(item.quantity) || 1),
+    0
+  );
 
   // Validate cart items & calculate server-verified pricing
   const validatedPricing = validateCartItems(
     items.map((i) => ({
       id: i.id,
       name: i.name,
-      price: i.price,
-      quantity: i.quantity,
+      price: Number(i.price) || 0,
+      quantity: Number(i.quantity) || 1,
       category: i.category,
       portionLabel: i.portionLabel,
     }))
   );
 
+  // Accurate active subtotal strictly summing up (item.price * item.quantity)
+  const finalSubtotal = activeCartSubtotal > 0 ? activeCartSubtotal : (validatedPricing.subtotal || 0);
   const deliveryCharges = customerDetails.orderType === 'Delivery' ? (settings.deliveryFee || 150) : 0;
-  const finalTotal = validatedPricing.subtotal + deliveryCharges;
+  const finalTotal = finalSubtotal + deliveryCharges;
 
   // Pre-fill user profile if available
   useEffect(() => {
@@ -149,9 +154,9 @@ export const CheckoutModal: React.FC = () => {
         ? customerDetails.address.trim()
         : RESTAURANT_PICKUP_LOCATION.fullAddress;
 
-      const orderItems = (validatedPricing.validatedItems || []).map((item) => {
+      const orderItems = (items || []).map((item) => {
         const itemPrice = Number(item.price) || 0;
-        const itemQty = Number(item.quantity) || 1;
+        const itemQty = Math.max(1, Number(item.quantity) || 1);
         return {
           id: item.id,
           name: item.name || 'Dragon Wok Dish',
@@ -163,6 +168,19 @@ export const CheckoutModal: React.FC = () => {
         };
       });
 
+      if (items.length === 0) {
+        setSubmitError('Your cart is empty. Please add items before ordering.');
+        setPlacingOrder(false);
+        return;
+      }
+
+      const calculatedSubtotal = items.reduce(
+        (sum, item) => sum + (Math.max(0, Number(item.price)) || 0) * Math.max(1, Number(item.quantity) || 1),
+        0
+      );
+      const calculatedDelivery = customerDetails.orderType === 'Delivery' ? (Number(settings.deliveryFee) || 150) : 0;
+      const calculatedTotal = calculatedSubtotal + calculatedDelivery;
+
       const orderPayload = {
         orderId: uniqueOrderNumber,
         userId: user ? user.uid : 'guest',
@@ -172,9 +190,9 @@ export const CheckoutModal: React.FC = () => {
         deliveryAddress: resolvedAddress,
         notes: (customerDetails.notes || '').trim(),
         items: orderItems,
-        subtotal: Number(validatedPricing.subtotal) || 0,
-        deliveryFee: Number(deliveryCharges) || 0,
-        total: Number(finalTotal) || 0,
+        subtotal: calculatedSubtotal,
+        deliveryFee: calculatedDelivery,
+        total: calculatedTotal,
         status: 'Pending',
         paymentMethod: 'cod',
         createdAt: new Date().toISOString(),
@@ -184,30 +202,6 @@ export const CheckoutModal: React.FC = () => {
       // Strip any undefined properties defensively
       const cleanPayload = removeUndefined(orderPayload);
       await setDoc(orderDocRef, cleanPayload);
-
-      // Trigger Requirement 5: Direct Google Sheets Integration
-      try {
-        const itemizedSummary = orderItems.map((i) => `${i.quantity}x ${i.name}`).join(', ');
-        syncOrderToGoogleSheets({
-          orderId: uniqueOrderNumber,
-          createdAt: orderPayload.createdAt,
-          customerName: orderPayload.customerName,
-          customerPhone: orderPayload.customerPhone,
-          orderType: orderPayload.orderType,
-          deliveryAddress: resolvedAddress,
-          itemizedSummary,
-          subtotal: orderPayload.subtotal,
-          deliveryFee: orderPayload.deliveryFee,
-          total: orderPayload.total,
-          status: 'Pending',
-          paymentMethod: 'Cash on Delivery',
-          notes: orderPayload.notes,
-        }).then((res) => {
-          if (res.success) setSheetsSynced(true);
-        }).catch((e) => console.warn('Sheets sync notice:', e));
-      } catch (e) {
-        console.warn('Sheets sync wrapper error:', e);
-      }
 
       setPlacedOrderId(uniqueOrderNumber);
       clearCart();
@@ -283,8 +277,28 @@ export const CheckoutModal: React.FC = () => {
 
           <div className="p-5 sm:p-6 max-h-[80vh] overflow-y-auto no-scrollbar">
             
+            {/* Empty Cart Safety Guard */}
+            {items.length === 0 && step !== 'success' ? (
+              <div className="text-center py-12 space-y-4">
+                <div className="w-16 h-16 rounded-full bg-stone-900 border border-stone-800 flex items-center justify-center mx-auto text-stone-500">
+                  <ShoppingBag className="w-8 h-8" />
+                </div>
+                <h3 className="text-lg font-bold text-white">Your Cart is Empty</h3>
+                <p className="text-xs text-stone-400 max-w-xs mx-auto">
+                  Please select your favorite wok dishes, noodles, or deals before proceeding to checkout.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsCheckoutOpen(false)}
+                  className="px-6 py-3 bg-[#991b1b] hover:bg-[#b91c1c] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition shadow-lg shadow-red-950/40"
+                >
+                  Return to Menu
+                </button>
+              </div>
+            ) : null}
+
             {/* STEP 1: FOODPANDA-STYLE CUSTOMER & ABBOTTABAD LOCATION FORM */}
-            {step === 'form' && (
+            {items.length > 0 && step === 'form' && (
               <form onSubmit={handleValidateAndProceed} className="space-y-4">
                 
                 {/* Order Type Tabs (Foodpanda Style) */}
@@ -430,9 +444,9 @@ export const CheckoutModal: React.FC = () => {
                 <div className="pt-2 border-t border-stone-800 text-xs text-stone-400 flex items-center justify-between">
                   <div>
                     <span>Items Total ({items.reduce((s, i) => s + i.quantity, 0)}): </span>
-                    <span className="font-mono text-stone-200">Rs. {validatedPricing.subtotal.toLocaleString()}</span>
+                    <span className="font-mono font-bold text-stone-100">Rs. {finalSubtotal.toLocaleString()}</span>
                     {customerDetails.orderType === 'Delivery' && (
-                      <span className="text-stone-500"> + Rs. {deliveryCharges} Delivery</span>
+                      <span className="text-stone-400"> + Rs. {deliveryCharges} Delivery</span>
                     )}
                   </div>
                   <div className="text-sm font-extrabold text-amber-400 font-mono">
@@ -459,8 +473,8 @@ export const CheckoutModal: React.FC = () => {
               </form>
             )}
 
-            {/* STEP 2: REVIEW & PLACE ORDER (Direct Firestore & Sheets save) */}
-            {step === 'confirm' && (
+            {/* STEP 2: REVIEW & PLACE ORDER */}
+            {items.length > 0 && step === 'confirm' && (
               <div className="space-y-4">
                 <div className="bg-[#121316] p-4 rounded-2xl border border-stone-800 space-y-2 text-xs">
                   <div className="flex justify-between pb-2 border-b border-stone-800">
@@ -496,7 +510,7 @@ export const CheckoutModal: React.FC = () => {
                   <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block mb-2">
                     Order Items ({items.length})
                   </span>
-                  {validatedPricing.validatedItems.map((item, idx) => (
+                  {items.map((item, idx) => (
                     <div key={idx} className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-amber-400 font-mono">{item.quantity}x</span>
@@ -516,7 +530,7 @@ export const CheckoutModal: React.FC = () => {
                   <div className="pt-3 border-t border-stone-800 space-y-1 text-xs">
                     <div className="flex justify-between text-stone-400">
                       <span>Subtotal:</span>
-                      <span className="font-mono text-stone-200">Rs. {validatedPricing.subtotal.toLocaleString()}</span>
+                      <span className="font-mono font-bold text-stone-200">Rs. {finalSubtotal.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between text-stone-400">
                       <span>Delivery Charges:</span>
@@ -611,12 +625,6 @@ export const CheckoutModal: React.FC = () => {
                       {customerDetails.orderType === 'Delivery' ? customerDetails.address : 'Jadoon Plaza Mandian (Pickup)'}
                     </span>
                   </div>
-                  {sheetsSynced && (
-                    <div className="flex items-center gap-1.5 text-emerald-400 text-[11px] pt-1">
-                      <FileSpreadsheet className="w-3.5 h-3.5" />
-                      <span>Recorded directly in Google Sheet</span>
-                    </div>
-                  )}
                 </div>
 
                 <div className="pt-2 space-y-2.5 max-w-sm mx-auto">
