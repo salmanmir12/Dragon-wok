@@ -288,9 +288,24 @@ export const CustomerAccount: React.FC = () => {
                   <span className="font-mono font-bold text-amber-400">{lookupResult.orderId}</span>
                   {getStatusBadge(lookupResult.status)}
                 </div>
-                <div className="text-stone-300">
-                  Total: <strong className="text-white">Rs. {lookupResult.total?.toLocaleString()}</strong> • {lookupResult.orderType.toUpperCase()}
-                </div>
+                {(() => {
+                  const itemsSum = (lookupResult.items || []).reduce(
+                    (acc, i) => acc + (Math.max(0, Number(i.price)) || 0) * Math.max(1, Number(i.quantity) || 1),
+                    0
+                  );
+                  const delivery = lookupResult.deliveryFee || 0;
+                  const expectedTotal = itemsSum + delivery;
+                  const displayTotal =
+                    lookupResult.total && lookupResult.total > 0 && !(lookupResult.total === 150 && expectedTotal > 150)
+                      ? lookupResult.total
+                      : expectedTotal;
+
+                  return (
+                    <div className="text-stone-300">
+                      Total: <strong className="text-white">Rs. {displayTotal.toLocaleString()}</strong> • {lookupResult.orderType.toUpperCase()}
+                    </div>
+                  );
+                })()}
                 <div className="text-stone-400">
                   {lookupResult.items.map((i) => `${i.quantity}x ${i.name}`).join(', ')}
                 </div>
@@ -496,16 +511,32 @@ export const CustomerAccount: React.FC = () => {
 
                     {/* Order Financials & Action Buttons */}
                     <div className="pt-4 border-t border-stone-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div className="text-xs text-stone-400 space-y-1">
-                        <div>Subtotal: Rs. {order.subtotal?.toLocaleString()}</div>
-                        {order.deliveryFee > 0 && <div>Delivery Fee: Rs. {order.deliveryFee}</div>}
-                        <div className="text-sm font-bold text-white pt-1">
-                          Total: <span className="text-amber-400">Rs. {order.total?.toLocaleString()}</span>
-                          <span className="ml-2 text-[10px] font-normal uppercase text-stone-400">
-                            ({order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Pay at Counter'})
-                          </span>
-                        </div>
-                      </div>
+                      {(() => {
+                        const itemsSum = (order.items || []).reduce(
+                          (acc, i) => acc + (Math.max(0, Number(i.price)) || 0) * Math.max(1, Number(i.quantity) || 1),
+                          0
+                        );
+                        const delivery = Number(order.deliveryFee) || 0;
+                        const expectedTotal = itemsSum + delivery;
+                        const finalSubtotal = itemsSum > 0 ? itemsSum : (Number(order.subtotal) || 0);
+                        const finalTotal =
+                          order.total && order.total > 0 && !(order.total === 150 && expectedTotal > 150)
+                            ? order.total
+                            : expectedTotal;
+
+                        return (
+                          <div className="text-xs text-stone-400 space-y-1">
+                            <div>Subtotal: Rs. {finalSubtotal.toLocaleString()}</div>
+                            {delivery > 0 && <div>Delivery Fee: Rs. {delivery}</div>}
+                            <div className="text-sm font-bold text-white pt-1">
+                              Total: <span className="text-amber-400">Rs. {finalTotal.toLocaleString()}</span>
+                              <span className="ml-2 text-[10px] font-normal uppercase text-stone-400">
+                                ({order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Pay at Counter'})
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       <div className="flex flex-wrap items-center gap-2">
                         {/* WhatsApp order query */}

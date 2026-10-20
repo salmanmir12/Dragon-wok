@@ -1,18 +1,23 @@
 /**
  * Kitchen Audio & Voice Notification Engine
- * - Web Audio API dual-tone synthesized bell chime (no external MP3 asset dependency)
- * - Web Speech API Text-to-Speech: "New Order Received! Order Number: [Order_ID]"
- * - Handles browser autoplay unlock policies
+ * - Web Audio API synthesized bell chime
+ * - Web Speech API Text-to-Speech: Announces ONLY "New order received. Order number DW-XXXXXX"
+ *   (Bill amounts, subtotals, or prices are NEVER spoken aloud)
+ * - Periodic reminder rings while orders are pending
+ * - Reminders stop immediately when staff accepts the order
+ * - Tracks separate pending states for concurrent orders
+ * - Quiet initialization so old orders do not ring on first load or refresh
  */
 
 class KitchenAudioAlertManager {
   private ctx: AudioContext | null = null;
-  private intervalId: any = null;
-  private isRinging: boolean = false;
+  private reminderIntervalId: any = null;
+  private pendingOrderIds = new Set<string>();
+  private announcedOrderIds = new Set<string>();
   private isUnlocked: boolean = false;
+  private isMuted: boolean = false;
 
   constructor() {
-    // Check if user previously unlocked in this session
     if (typeof window !== 'undefined') {
       this.isUnlocked = sessionStorage.getItem('kitchen_audio_unlocked') === 'true';
     }
@@ -20,6 +25,19 @@ class KitchenAudioAlertManager {
 
   public getUnlocked(): boolean {
     return this.isUnlocked;
+  }
+
+  public getIsMuted(): boolean {
+    return this.isMuted;
+  }
+
+  public setMuted(muted: boolean) {
+    this.isMuted = muted;
+    if (muted) {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    }
   }
 
   public unlock(): boolean {
@@ -32,10 +50,9 @@ class KitchenAudioAlertManager {
         this.ctx.resume();
       }
 
-      // Play a short, nearly silent chime to ensure browser recognizes user interaction
+      // Play soft click to ensure browser marks audio unlocked
       this.playChime(0.1);
 
-      // Pre-warm Web Speech API
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       }
@@ -52,9 +69,10 @@ class KitchenAudioAlertManager {
   }
 
   /**
-   * Synthesize a loud, clear dual-frequency kitchen bell chime
+   * Synthesize a clear restaurant kitchen bell chime
    */
   public playChime(volume = 0.5) {
+    if (this.isMuted) return;
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!this.ctx && AudioCtx) {
@@ -73,7 +91,7 @@ class KitchenAudioAlertManager {
       osc1.type = 'sine';
       osc2.type = 'triangle';
 
-      // Restaurant POS chime frequencies (High-low ping)
+      // Restaurant POS chime frequencies (Dual-tone alert)
       osc1.frequency.setValueAtTime(880, now);
       osc1.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
 
@@ -97,24 +115,21 @@ class KitchenAudioAlertManager {
   }
 
   /**
-   * Speak out the order notification using Web Speech API:
-   * "New order received. Order number [order_id]. Total bill: [total] Rupees."
+   * Speak out the order announcement using Web Speech API:
+   * "New order received. Order number DW-123456."
+   * STRICT REQUIREMENT: Does NOT speak bill amounts, prices, or totals!
    */
-  public speakOrder(orderId: string, totalAmount?: number) {
+  public speakNewOrder(orderId: string) {
+    if (this.isMuted) return;
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
     try {
       window.speechSynthesis.cancel();
 
-      // Format order id for clear pronunciation e.g. "D W 3 1 3 2 2 2"
+      // Format order id clearly (e.g. "D W 3 1 3 2 2 2")
       const cleanId = orderId.replace(/[^a-zA-Z0-9]/g, ' ');
-      let text = `New order received. Order number: ${cleanId}.`;
-      if (typeof totalAmount === 'number' && totalAmount > 0) {
-        text += ` Total bill: ${Math.round(totalAmount)} Rupees.`;
-      }
-
-      const utterance = new SpeechSynthesisUtterance(text);
+      const utterance = new SpeechSynthesisUtterance(`New order received. Order number: ${cleanId}.`);
       utterance.rate = 0.95;
-      utterance.pitch = 1.05;
+      utterance.pitch = 1.0;
       utterance.volume = 1.0;
       utterance.lang = 'en-US';
 
@@ -125,14 +140,14 @@ class KitchenAudioAlertManager {
   }
 
   /**
-   * Send native background browser notification if permission is granted
+   * Background desktop push notification
    */
   public sendBrowserNotification(orderId: string, customerName?: string, totalAmount?: number) {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     try {
       if (Notification.permission === 'granted') {
-        const body = `${customerName ? `${customerName} • ` : ''}${totalAmount ? `Total: Rs. ${totalAmount.toLocaleString()} • ` : ''}Awaiting kitchen acceptance`;
-        new Notification(`🔥 New Order Received: #${orderId}`, {
+        const body = `${customerName ? `${customerName} • ` : ''}${totalAmount ? `Rs. ${totalAmount.toLocaleString()} • ` : ''}Pending Kitchen Acceptance`;
+        new Notification(`🔥 New Order: #${orderId}`, {
           body,
           icon: '/images/dragon_wok_logo.jpg',
           tag: orderId,
@@ -144,46 +159,119 @@ class KitchenAudioAlertManager {
   }
 
   /**
-   * Trigger noticeable audio chime + voice announcement + background notification
+   * Step 1: Genuine new order arrived
+   * - Trigger chime ring
+   * - Speak announcement: "New order received. Order number [orderId]"
+   * - Track pending order and start reminder ring loop
    */
-  public startOrderAlarm(orderId: string, totalAmount?: number, customerName?: string) {
-    this.unlock();
-    this.stopOrderAlarm(); // Clear any existing loop
+  public onNewOrderArrived(orderId: string, customerName?: string, totalAmount?: number) {
+    if (this.announcedOrderIds.has(orderId)) return;
+    this.announcedOrderIds.add(orderId);
+    this.pendingOrderIds.add(orderId);
 
-    this.isRinging = true;
+    // Initial alert: chime ring + spoken announcement of order number
+    if (!this.isMuted) {
+      this.playChime(0.65);
+      this.speakNewOrder(orderId);
+    }
 
-    // Send browser push notification if dashboard is backgrounded
     this.sendBrowserNotification(orderId, customerName, totalAmount);
 
-    // Speak announcement once immediately
-    this.speakOrder(orderId, totalAmount);
-
-    // Play chime sound
-    this.playChime(0.65);
-
-    // Periodic repeat chime (alert bell) while ringing
-    this.intervalId = setInterval(() => {
-      if (!this.isRinging) {
-        this.stopOrderAlarm();
-        return;
-      }
-      this.playChime(0.65);
-    }, 1800);
+    // Step 2: Keep reminder loop active while any orders remain pending
+    this.startReminderLoop();
   }
 
-  public stopOrderAlarm() {
-    this.isRinging = false;
-    if (this.intervalId) {
-      clearInterval(this.intervalId);
-      this.intervalId = null;
+  /**
+   * Step 2: Periodic reminder ring while orders remain pending
+   * Plays short reminder chime every 6 seconds.
+   * Does NOT repeat the spoken announcement!
+   */
+  private startReminderLoop() {
+    if (this.reminderIntervalId) return;
+
+    this.reminderIntervalId = setInterval(() => {
+      if (this.pendingOrderIds.size === 0) {
+        this.stopReminderLoop();
+        return;
+      }
+      // Play reminder ring chime
+      if (!this.isMuted) {
+        this.playChime(0.45);
+      }
+    }, 6000);
+  }
+
+  private stopReminderLoop() {
+    if (this.reminderIntervalId) {
+      clearInterval(this.reminderIntervalId);
+      this.reminderIntervalId = null;
     }
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
   }
 
-  public getIsRinging(): boolean {
-    return this.isRinging;
+  /**
+   * Step 3: Kitchen accepts an order
+   * - Remove that order from pending set
+   * - If no other orders are pending, stops reminder ring immediately!
+   * - If other orders are still pending, reminders continue for them.
+   */
+  public onOrderAccepted(orderId: string) {
+    this.pendingOrderIds.delete(orderId);
+    if (this.pendingOrderIds.size === 0) {
+      this.stopReminderLoop();
+    }
+  }
+
+  /**
+   * Mark all existing orders quiet on initial load or page refresh
+   * Prevents old orders from ringing or speaking when opening the dashboard
+   */
+  public markInitialOrdersQuiet(orderIds: string[]) {
+    orderIds.forEach((id) => this.announcedOrderIds.add(id));
+  }
+
+  /**
+   * Get set of currently ringing pending order IDs
+   */
+  public getPendingOrderIds(): Set<string> {
+    return this.pendingOrderIds;
+  }
+
+  /**
+   * Silence all current active alerts
+   */
+  public silenceAll() {
+    this.pendingOrderIds.clear();
+    this.stopReminderLoop();
+  }
+
+  /**
+   * Compatibility alias for starting new order alert and announcement
+   * Note: bill amount is NOT announced aloud per requirements
+   */
+  public startOrderAlarm(orderId: string, total?: number, customerName?: string) {
+    this.onNewOrderArrived(orderId, customerName, total);
+  }
+
+  /**
+   * Compatibility alias for stopping order alarm (single order or all)
+   */
+  public stopOrderAlarm(orderId?: string) {
+    if (orderId) {
+      this.onOrderAccepted(orderId);
+    } else {
+      this.silenceAll();
+    }
+  }
+
+  /**
+   * Compatibility alias for speaking new order
+   * Explicitly avoids speaking the bill amount
+   */
+  public speakOrder(orderId: string, _total?: number) {
+    this.speakNewOrder(orderId);
   }
 }
 

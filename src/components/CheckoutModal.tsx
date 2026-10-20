@@ -13,11 +13,12 @@ import {
   Lock,
   ShieldCheck,
 } from 'lucide-react';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db, removeUndefined } from '../firebase';
-import { useOrder } from '../context/OrderContext';
+import { useOrder, CustomerDetails } from '../context/OrderContext';
 import { useAuth } from '../context/AuthContext';
 import { useMenu } from '../context/MenuContext';
+import { calculateOrderPricing, OrderLineItem } from '../utils/orderPricing';
 import { generateWhatsAppOrderUrl } from '../utils/whatsapp';
 import {
   ABBOTTABAD_AREAS,
@@ -45,6 +46,37 @@ export const CheckoutModal: React.FC = () => {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
+
+  // Preserve placed order details across cart reset for confirmation and WhatsApp
+  const [placedOrderSummary, setPlacedOrderSummary] = useState<{
+    orderId: string;
+    total: number;
+    subtotal: number;
+    deliveryFee: number;
+    orderType: string;
+    items: Array<{
+      id: string;
+      name: string;
+      price: number;
+      quantity: number;
+      category?: string;
+      portionLabel?: string | null;
+      itemTotal: number;
+    }>;
+    address: string;
+    customerName: string;
+    customerPhone: string;
+  } | null>(null);
+
+  // Handle closing modal and cleanly reset state when closing from success
+  const handleClose = () => {
+    setIsCheckoutOpen(false);
+    if (step === 'success') {
+      setStep('form');
+      setPlacedOrderId(null);
+      setPlacedOrderSummary(null);
+    }
+  };
 
   // Accurately sum up (item.price * item.quantity) based on active cart
   const activeCartSubtotal = items.reduce(
@@ -203,6 +235,41 @@ export const CheckoutModal: React.FC = () => {
       const cleanPayload = removeUndefined(orderPayload);
       await setDoc(orderDocRef, cleanPayload);
 
+      // Verify and fetch the saved record directly from Firestore
+      let confirmedTotal = calculatedTotal;
+      let confirmedSubtotal = calculatedSubtotal;
+      let confirmedDelivery = calculatedDelivery;
+      try {
+        const savedSnap = await getDoc(orderDocRef);
+        if (savedSnap.exists()) {
+          const savedData = savedSnap.data();
+          if (typeof savedData?.total === 'number' && savedData.total > 0) {
+            confirmedTotal = savedData.total;
+          }
+          if (typeof savedData?.subtotal === 'number') {
+            confirmedSubtotal = savedData.subtotal;
+          }
+          if (typeof savedData?.deliveryFee === 'number') {
+            confirmedDelivery = savedData.deliveryFee;
+          }
+        }
+      } catch (e) {
+        console.warn('Could not re-fetch saved order doc:', e);
+      }
+
+      // Preserve full order details so reset cart does not clear confirmation screen
+      setPlacedOrderSummary({
+        orderId: uniqueOrderNumber,
+        total: confirmedTotal,
+        subtotal: confirmedSubtotal,
+        deliveryFee: confirmedDelivery,
+        orderType: customerDetails.orderType,
+        items: orderItems,
+        address: resolvedAddress,
+        customerName: (customerDetails.name || '').trim(),
+        customerPhone: (customerDetails.phone || '').trim(),
+      });
+
       setPlacedOrderId(uniqueOrderNumber);
       clearCart();
       setStep('success');
@@ -218,6 +285,31 @@ export const CheckoutModal: React.FC = () => {
   };
 
   const handleSendToWhatsApp = () => {
+    // If order was already submitted, send the verified placed order summary!
+    if (placedOrderSummary) {
+      const cartFormattedItems = placedOrderSummary.items.map((i) => ({
+        id: i.id,
+        name: i.name,
+        price: i.price,
+        quantity: i.quantity,
+        portionLabel: i.portionLabel || undefined,
+      }));
+      const whatsappUrl = generateWhatsAppOrderUrl(
+        {
+          name: placedOrderSummary.customerName,
+          phone: placedOrderSummary.customerPhone,
+          address: placedOrderSummary.address,
+          notes: customerDetails.notes,
+          orderType: placedOrderSummary.orderType as 'Delivery' | 'Pickup',
+        },
+        cartFormattedItems,
+        placedOrderSummary.total,
+        !restaurantStatus.isOpen
+      );
+      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
     const whatsappUrl = generateWhatsAppOrderUrl(
       customerDetails,
       items,
@@ -236,9 +328,9 @@ export const CheckoutModal: React.FC = () => {
     >
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity"
+        className="fixed inset-0 bg-black/80 backdrop-blur-md transition-opacity cursor-pointer"
         onClick={() => {
-          if (step !== 'success' && !placingOrder) setIsCheckoutOpen(false);
+          if (!placingOrder) handleClose();
         }}
       />
 
@@ -264,11 +356,14 @@ export const CheckoutModal: React.FC = () => {
               </div>
             </div>
 
-            {step !== 'success' && !placingOrder && (
+            {/* Cross (X) Close Option - Always accessible after completing order & during form */}
+            {!placingOrder && (
               <button
-                onClick={() => setIsCheckoutOpen(false)}
-                className="p-1.5 text-stone-400 hover:text-white rounded-full hover:bg-stone-800 transition"
+                type="button"
+                onClick={handleClose}
+                className="p-2 text-stone-400 hover:text-white rounded-full hover:bg-stone-800 transition bg-stone-900/60 border border-stone-800/80 hover:border-stone-700 flex items-center justify-center"
                 aria-label="Close modal"
+                title="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -604,21 +699,68 @@ export const CheckoutModal: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-[#121316] p-4 rounded-2xl border border-stone-800 text-left text-xs space-y-2 max-w-sm mx-auto">
-                  <div className="flex justify-between">
+                <div className="bg-[#121316] p-4 sm:p-5 rounded-2xl border border-stone-800 text-left text-xs space-y-3 max-w-sm mx-auto shadow-inner">
+                  <div className="flex justify-between items-center pb-2 border-b border-stone-800">
+                    <span className="text-stone-400">Order ID:</span>
+                    <span className="font-mono font-bold text-amber-400">{placedOrderId}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
                     <span className="text-stone-400">Status:</span>
-                    <span className="font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">
-                      🟡 Pending Kitchen Acceptance
+                    <span className="font-bold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                      Pending Kitchen Acceptance
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-stone-400">Total Bill:</span>
-                    <span className="font-mono font-bold text-white">Rs. {finalTotal.toLocaleString()}</span>
+
+                  {/* Itemized Order Breakdown */}
+                  {placedOrderSummary && placedOrderSummary.items.length > 0 && (
+                    <div className="py-2.5 border-y border-stone-800/80 space-y-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block mb-1">
+                        Dishes Ordered ({placedOrderSummary.items.length}):
+                      </span>
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto no-scrollbar pr-1">
+                        {placedOrderSummary.items.map((it, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-stone-300">
+                            <span className="truncate pr-2">
+                              <span className="font-bold text-amber-400 mr-1.5">{it.quantity}x</span>
+                              {it.name}
+                              {it.portionLabel ? ` (${it.portionLabel})` : ''}
+                            </span>
+                            <span className="font-mono text-stone-300 shrink-0 font-medium">
+                              Rs. {(it.price * it.quantity).toLocaleString()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="pt-2 border-t border-stone-800 flex justify-between text-stone-400 text-[11px]">
+                        <span>Subtotal:</span>
+                        <span className="font-mono text-stone-300">
+                          Rs. {placedOrderSummary.subtotal.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-stone-400 text-[11px]">
+                        <span>Delivery Charge:</span>
+                        <span className="font-mono text-stone-300">
+                          {placedOrderSummary.orderType === 'Delivery' ? `Rs. ${placedOrderSummary.deliveryFee}` : 'Free (Pickup)'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center text-sm font-extrabold text-white pt-1">
+                    <span className="text-amber-400 uppercase tracking-wider text-xs">Total Bill:</span>
+                    <span className="text-lg font-mono font-extrabold text-amber-400">
+                      Rs. {(placedOrderSummary ? placedOrderSummary.total : finalTotal).toLocaleString()}
+                    </span>
                   </div>
+
                   <div className="flex justify-between">
                     <span className="text-stone-400">Payment:</span>
                     <span className="font-medium text-stone-200">Cash on Delivery</span>
                   </div>
+
                   <div className="flex justify-between">
                     <span className="text-stone-400">Location:</span>
                     <span className="font-medium text-stone-200 text-right max-w-[180px] truncate">
@@ -629,21 +771,22 @@ export const CheckoutModal: React.FC = () => {
 
                 <div className="pt-2 space-y-2.5 max-w-sm mx-auto">
                   <button
+                    type="button"
                     onClick={handleSendToWhatsApp}
-                    className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition shadow-lg shadow-emerald-950/40"
+                    className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition shadow-lg shadow-emerald-950/40"
                   >
                     <Send className="w-4 h-4" />
                     <span>Send Order Details via WhatsApp</span>
                   </button>
 
+                  {/* Close Cross Option Button */}
                   <button
-                    onClick={() => {
-                      setIsCheckoutOpen(false);
-                      setStep('form');
-                    }}
-                    className="w-full py-3 px-4 bg-stone-900 hover:bg-stone-800 text-stone-300 rounded-xl text-xs font-semibold transition"
+                    type="button"
+                    onClick={handleClose}
+                    className="w-full py-3.5 px-4 bg-stone-900 hover:bg-stone-800 text-stone-200 hover:text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition border border-stone-800 hover:border-stone-700"
                   >
-                    Done & Return to Menu
+                    <X className="w-4 h-4 text-stone-400" />
+                    <span>Close & Continue Browsing Menu</span>
                   </button>
                 </div>
               </div>

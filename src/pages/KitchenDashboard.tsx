@@ -170,9 +170,10 @@ export const KitchenDashboard: React.FC = () => {
   ) => {
     setUpdatingId(orderDocId);
     try {
-      // If accepting the currently alarming order, silence the alarm
+      // Stop reminder alarm immediately for this accepted order
+      kitchenAudioAlert.stopOrderAlarm(orderData?.orderId || orderDocId);
       if (activeAlarmOrderId === orderData?.orderId || activeAlarmOrderId === orderDocId) {
-        handleSilenceAlarm();
+        setActiveAlarmOrderId(null);
       }
 
       const orderRef = doc(db, 'orders', orderDocId);
@@ -183,13 +184,16 @@ export const KitchenDashboard: React.FC = () => {
 
       // Auto-trigger customer confirmation notification when kitchen accepts order
       if (newStatus === 'Confirmed' && orderData) {
-        const calculatedSubtotal =
-          orderData.subtotal ??
-          (orderData.items || []).reduce(
-            (acc, i) => acc + Number(i.price || 0) * Number(i.quantity || 1),
-            0
-          );
-        const calculatedTotal = orderData.total ?? calculatedSubtotal + (orderData.deliveryFee || 0);
+        const itemsSum = (orderData.items || []).reduce(
+          (acc, i) => acc + (Math.max(0, Number(i.price)) || 0) * Math.max(1, Number(i.quantity) || 1),
+          0
+        );
+        const deliveryFee = orderData.orderType === 'delivery' ? (Number(orderData.deliveryFee) || 0) : 0;
+        const expectedTotal = itemsSum + deliveryFee;
+        const calculatedTotal =
+          orderData.total && orderData.total > 0 && !(orderData.total === 150 && expectedTotal > 150)
+            ? orderData.total
+            : expectedTotal;
 
         triggerOrderConfirmation({
           orderId: orderData.orderId,
@@ -600,14 +604,17 @@ export const KitchenDashboard: React.FC = () => {
               const isAlarming = activeAlarmOrderId === order.orderId;
 
               // Calculate item total dynamically to safeguard against any legacy data mismatch
-              const calculatedSubtotal =
-                order.subtotal ??
-                (order.items || []).reduce(
-                  (acc, i) => acc + (Number(i.price) || 0) * Math.max(1, Number(i.quantity) || 1),
-                  0
-                );
+              const itemsSum = (order.items || []).reduce(
+                (acc, i) => acc + (Math.max(0, Number(i.price)) || 0) * Math.max(1, Number(i.quantity) || 1),
+                0
+              );
+              const deliveryFee = order.orderType === 'delivery' ? (Number(order.deliveryFee) || 0) : 0;
+              const expectedTotal = itemsSum + deliveryFee;
+              const calculatedSubtotal = itemsSum > 0 ? itemsSum : (Number(order.subtotal) || 0);
               const calculatedTotal =
-                order.total ?? calculatedSubtotal + (Number(order.deliveryFee) || 0);
+                order.total && order.total > 0 && !(order.total === 150 && expectedTotal > 150)
+                  ? order.total
+                  : expectedTotal;
 
               return (
                 <div
