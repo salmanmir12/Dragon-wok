@@ -2,16 +2,13 @@ import React from 'react';
 import { ShoppingBag, ArrowUpRight } from 'lucide-react';
 import { FEATURED_DISHES } from '../data/menuData';
 import { useOrder } from '../context/OrderContext';
+import { getDishPhoto } from './MenuCard';
 
 export const FeaturedDishes: React.FC = () => {
   const { addItem } = useOrder();
 
-  const getDishFallback = (name: string) => {
-    const lower = name.toLowerCase();
-    if (lower.includes('chowmein')) return '/images/dish_chowmein.jpg';
-    if (lower.includes('momo')) return '/images/dish_momos.jpg';
-    if (lower.includes('hot pot')) return '/images/dish_hot_pot.jpg';
-    return '/images/hero_wok_fire.jpg';
+  const getDishFallback = (name: string, category?: string) => {
+    return getDishPhoto(name, category);
   };
 
   return (
@@ -49,7 +46,7 @@ export const FeaturedDishes: React.FC = () => {
                   referrerPolicy="no-referrer"
                   onError={(e) => {
                     e.currentTarget.onerror = null;
-                    e.currentTarget.src = getDishFallback(dish.name);
+                    e.currentTarget.src = getDishFallback(dish.name, dish.category);
                   }}
                   className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 filter brightness-95"
                 />

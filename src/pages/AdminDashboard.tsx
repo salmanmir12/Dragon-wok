@@ -57,10 +57,12 @@ export const AdminDashboard: React.FC = () => {
   const [staffList, setStaffList] = useState<any[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
 
-  // Order filters
+  // Order filters & pending confirmation state
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<StoredOrder | null>(null);
+  const [deliveryFeeInputs, setDeliveryFeeInputs] = useState<Record<string, string>>({});
+  const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
 
   // Menu management state
   const [menuSearch, setMenuSearch] = useState('');
@@ -148,12 +150,24 @@ export const AdminDashboard: React.FC = () => {
     };
   }, [user, isAdmin]);
 
-  // Analytics Metrics Calculation
+  // Analytics Metrics Calculation - Step 5 & Section 7:
+  // Only confirmed/completed orders count toward sales. pending_confirmation and Cancelled orders are excluded.
+  // Unconfirmed delivery charges are excluded from sales.
   const metrics = useMemo(() => {
     const totalOrders = orders.length;
+    const confirmedStatuses = ['Confirmed', 'Preparing', 'Ready', 'Out for Delivery', 'Completed'];
+
     const totalRevenue = orders
-      .filter((o) => o.status !== 'Cancelled')
-      .reduce((sum, o) => sum + (o.total || 0), 0);
+      .filter((o) => confirmedStatuses.includes(o.status))
+      .reduce((sum, o) => {
+        const itemSum = (o.items || []).reduce(
+          (acc, i) => acc + (Math.max(0, Number(i.price)) || 0) * Math.max(1, Number(i.quantity) || 1),
+          0
+        );
+        const fee = o.orderType === 'delivery' && o.deliveryFee != null ? Number(o.deliveryFee) || 0 : 0;
+        const orderTotal = o.total != null && o.total > 0 ? o.total : itemSum + fee;
+        return sum + orderTotal;
+      }, 0);
 
     const now = new Date();
     const todayStr = now.toISOString().slice(0, 10);
@@ -161,10 +175,18 @@ export const AdminDashboard: React.FC = () => {
     const todayOrdersList = orders.filter((o) => o.createdAt?.startsWith(todayStr));
     const todayOrders = todayOrdersList.length;
     const todayRevenue = todayOrdersList
-      .filter((o) => o.status !== 'Cancelled')
-      .reduce((sum, o) => sum + (o.total || 0), 0);
+      .filter((o) => confirmedStatuses.includes(o.status))
+      .reduce((sum, o) => {
+        const itemSum = (o.items || []).reduce(
+          (acc, i) => acc + (Math.max(0, Number(i.price)) || 0) * Math.max(1, Number(i.quantity) || 1),
+          0
+        );
+        const fee = o.orderType === 'delivery' && o.deliveryFee != null ? Number(o.deliveryFee) || 0 : 0;
+        const orderTotal = o.total != null && o.total > 0 ? o.total : itemSum + fee;
+        return sum + orderTotal;
+      }, 0);
 
-    const pendingOrders = orders.filter((o) => o.status === 'Pending').length;
+    const pendingOrders = orders.filter((o) => ['pending_confirmation', 'Pending'].includes(o.status)).length;
     const preparingOrders = orders.filter((o) => ['Confirmed', 'Preparing'].includes(o.status)).length;
     const outForDelivery = orders.filter((o) => o.status === 'Out for Delivery').length;
 
@@ -178,6 +200,78 @@ export const AdminDashboard: React.FC = () => {
       outForDelivery,
     };
   }, [orders]);
+
+  // Step 5: Confirm Order & Set Delivery Fee, sending ticket to kitchen
+  const handleConfirmOrder = async (order: StoredOrder) => {
+    try {
+      setConfirmingOrderId(order.id);
+      const itemsSum = (order.items || []).reduce(
+        (sum, item) => sum + (Math.max(0, Number(item.price)) || 0) * Math.max(1, Number(item.quantity) || 1),
+        0
+      );
+      const subtotal = order.subtotal && order.subtotal > 0 ? order.subtotal : itemsSum;
+
+      const enteredFee = deliveryFeeInputs[order.id];
+      const deliveryFee = order.orderType === 'delivery'
+        ? (enteredFee !== undefined && enteredFee !== '' ? Math.max(0, Number(enteredFee) || 0) : 0)
+        : 0;
+
+      const recalculatedTotal = subtotal + deliveryFee;
+
+      const orderRef = doc(db, 'orders', order.id);
+      await updateDoc(orderRef, {
+        status: 'Confirmed',
+        deliveryFee,
+        total: recalculatedTotal,
+        confirmedAt: new Date().toISOString(),
+        confirmedBy: user?.email || 'Admin Staff',
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Clear the fee input
+      setDeliveryFeeInputs((prev) => {
+        const copy = { ...prev };
+        delete copy[order.id];
+        return copy;
+      });
+
+      if (selectedOrder && selectedOrder.id === order.id) {
+        setSelectedOrder((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: 'Confirmed',
+                deliveryFee,
+                total: recalculatedTotal,
+                confirmedAt: new Date().toISOString(),
+                confirmedBy: user?.email || 'Admin Staff',
+              }
+            : null
+        );
+      }
+    } catch (err) {
+      console.error('Error confirming order:', err);
+      handleFirestoreError(err, OperationType.UPDATE, `orders/${order.id}`);
+    } finally {
+      setConfirmingOrderId(null);
+    }
+  };
+
+  const handleCancelPendingOrder = async (orderId: string) => {
+    if (!window.confirm('Are you sure you want to cancel / reject this order?')) return;
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      await updateDoc(orderRef, {
+        status: 'Cancelled',
+        updatedAt: new Date().toISOString(),
+      });
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setSelectedOrder((prev) => (prev ? { ...prev, status: 'Cancelled' } : null));
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `orders/${orderId}`);
+    }
+  };
 
   // Order status update
   const handleUpdateOrderStatus = async (orderId: string, status: StoredOrder['status']) => {
@@ -523,6 +617,233 @@ export const AdminDashboard: React.FC = () => {
         {/* TAB 2: LIVE ORDER MANAGEMENT */}
         {activeTab === 'orders' && (
           <div className="space-y-6">
+            {/* STEP 5: DEDICATED PENDING CONFIRMATION ORDERS SECTION */}
+            {(() => {
+              const pendingConfirmationOrders = orders.filter(
+                (o) => o.status === 'pending_confirmation' || o.status === 'Pending'
+              );
+
+              return (
+                <div className="bg-[#181a20] rounded-2xl border-2 border-amber-500/40 p-5 sm:p-6 shadow-2xl relative overflow-hidden">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-4 border-b border-stone-800">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                        <Clock className="w-5 h-5 animate-pulse" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-serif-brand text-lg font-bold text-white">
+                            Pending Confirmation Orders
+                          </h3>
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            {pendingConfirmationOrders.length} Waiting
+                          </span>
+                        </div>
+                        <p className="text-xs text-stone-400">
+                          Customer orders received via WhatsApp. Inspect items, enter agreed Abbottabad delivery charges, and confirm to send directly into the Kitchen.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {pendingConfirmationOrders.length === 0 ? (
+                    <div className="text-center py-6 text-stone-400 text-xs">
+                      <CheckCircle className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                      <p className="font-semibold text-white">All caught up!</p>
+                      <p className="text-stone-500">No pending orders awaiting review. All orders are confirmed or completed.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {pendingConfirmationOrders.map((order) => {
+                        const itemsSum = (order.items || []).reduce(
+                          (sum, item) => sum + (Math.max(0, Number(item.price)) || 0) * Math.max(1, Number(item.quantity) || 1),
+                          0
+                        );
+                        const subtotal = order.subtotal && order.subtotal > 0 ? order.subtotal : itemsSum;
+                        const enteredFeeStr = deliveryFeeInputs[order.id] ?? (order.orderType === 'delivery' ? '' : '0');
+                        const enteredFeeNum = order.orderType === 'delivery' ? (Number(enteredFeeStr) || 0) : 0;
+                        const previewTotal = subtotal + enteredFeeNum;
+                        const isConfirming = confirmingOrderId === order.id;
+
+                        return (
+                          <div
+                            key={order.id}
+                            className="bg-[#121316] rounded-xl border border-amber-500/30 p-4 flex flex-col justify-between space-y-4 shadow-lg hover:border-amber-500/60 transition"
+                          >
+                            {/* Header */}
+                            <div>
+                              <div className="flex items-center justify-between pb-2 border-b border-stone-800">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-base font-extrabold text-amber-400">
+                                    {order.orderId}
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 border border-amber-500/30 text-amber-300 uppercase tracking-wide">
+                                    {order.orderType === 'delivery' ? '🛵 Delivery' : '🥡 Pickup'}
+                                  </span>
+                                </div>
+                                <span className="text-[11px] text-stone-400">
+                                  {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+
+                              {/* Customer & Location */}
+                              <div className="pt-3 text-xs space-y-1 text-stone-300">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-bold text-white">{order.customerName}</span>
+                                  <a
+                                    href={`tel:${order.customerPhone}`}
+                                    className="font-mono text-amber-400 hover:underline flex items-center gap-1"
+                                  >
+                                    <Phone className="w-3 h-3" />
+                                    <span>{order.customerPhone}</span>
+                                  </a>
+                                </div>
+
+                                {order.orderType === 'delivery' && (
+                                  <div className="flex items-start gap-1 text-[11px] text-stone-400 bg-stone-900/60 p-2 rounded-lg border border-stone-800 mt-1.5">
+                                    <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                                    <span className="text-stone-300 font-medium">{order.deliveryAddress || 'Address not specified'}</span>
+                                  </div>
+                                )}
+
+                                {order.notes && (
+                                  <div className="text-[11px] text-stone-400 bg-stone-900/40 p-2 rounded-lg border border-stone-800/80 italic">
+                                    "{order.notes}"
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Items Breakdown */}
+                              <div className="mt-3 pt-2 border-t border-stone-800/80 space-y-1 text-xs">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block mb-1">
+                                  Ordered Items ({(order.items || []).length}):
+                                </span>
+                                <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+                                  {(order.items || []).map((it, idx) => (
+                                    <div key={idx} className="flex justify-between text-stone-300 py-0.5">
+                                      <span className="truncate pr-2">
+                                        <span className="font-bold text-amber-400 mr-1">{it.quantity}x</span>
+                                        {it.name} {it.portionLabel ? `(${it.portionLabel})` : ''}
+                                      </span>
+                                      <span className="font-mono text-stone-300 shrink-0 font-medium">
+                                        Rs. {(it.price * it.quantity).toLocaleString()}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Financials & Delivery Fee Input */}
+                            <div className="pt-3 border-t border-stone-800 space-y-2.5">
+                              <div className="flex justify-between text-xs text-stone-400">
+                                <span>Food Subtotal:</span>
+                                <span className="font-mono font-bold text-white">Rs. {subtotal.toLocaleString()}</span>
+                              </div>
+
+                              {order.orderType === 'delivery' ? (
+                                <div className="bg-stone-900/80 p-2.5 rounded-xl border border-stone-800 space-y-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <label className="text-[11px] font-bold text-amber-400 uppercase tracking-wide">
+                                      Agreed Delivery Charges (PKR):
+                                    </label>
+                                    <span className="text-[10px] text-stone-400">Mandian / Abbottabad</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-mono text-stone-400">Rs.</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="10"
+                                      placeholder="e.g. 150"
+                                      value={deliveryFeeInputs[order.id] ?? ''}
+                                      onChange={(e) =>
+                                        setDeliveryFeeInputs((prev) => ({ ...prev, [order.id]: e.target.value }))
+                                      }
+                                      className="flex-1 bg-black/60 border border-amber-500/40 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-amber-400"
+                                    />
+                                  </div>
+                                  <div className="flex flex-wrap gap-1.5 pt-1">
+                                    {[100, 150, 200, 250, 300].map((fee) => (
+                                      <button
+                                        key={fee}
+                                        type="button"
+                                        onClick={() =>
+                                          setDeliveryFeeInputs((prev) => ({ ...prev, [order.id]: String(fee) }))
+                                        }
+                                        className="px-2 py-0.5 rounded bg-stone-800 hover:bg-stone-700 text-[10px] font-mono text-stone-300"
+                                      >
+                                        Rs. {fee}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex justify-between text-xs text-stone-400">
+                                  <span>Delivery Fee:</span>
+                                  <span className="font-mono text-emerald-400 font-semibold">Free (Pickup)</span>
+                                </div>
+                              )}
+
+                              <div className="flex justify-between items-center text-sm font-extrabold text-white pt-1 border-t border-stone-800/80">
+                                <span className="text-amber-400 uppercase tracking-wider text-xs">Total Bill:</span>
+                                <span className="text-base font-mono font-extrabold text-amber-400">
+                                  Rs. {previewTotal.toLocaleString()}
+                                </span>
+                              </div>
+
+                              {/* Action Buttons */}
+                              <div className="flex items-center gap-2 pt-2">
+                                <a
+                                  href={`https://wa.me/${order.customerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                                    `Salam ${order.customerName}, Dragon Wok Mandian here regarding your order #${order.orderId}. Food Subtotal: Rs. ${subtotal}. Delivery to ${order.deliveryAddress || 'your address'}: Rs. ${enteredFeeNum}. Total Bill: Rs. ${previewTotal}. Confirming your order now!`
+                                  )}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-3 py-2 bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-600/60 text-emerald-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                                  title="Chat with Customer on WhatsApp"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                  <span className="hidden sm:inline">WhatsApp</span>
+                                </a>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleCancelPendingOrder(order.id)}
+                                  className="px-3 py-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-700/60 text-rose-300 rounded-xl text-xs font-bold transition"
+                                >
+                                  Cancel
+                                </button>
+
+                                <button
+                                  type="button"
+                                  disabled={isConfirming}
+                                  onClick={() => handleConfirmOrder(order)}
+                                  className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider transition shadow-lg shadow-emerald-950/60 flex items-center justify-center gap-1.5"
+                                >
+                                  {isConfirming ? (
+                                    <>
+                                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                      <span>Confirming...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Check className="w-3.5 h-3.5" />
+                                      <span>Confirm & Send to Kitchen</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Search and Filters */}
             <div className="flex flex-col sm:flex-row items-center gap-3">
               <div className="relative flex-1 w-full">
@@ -542,6 +863,7 @@ export const AdminDashboard: React.FC = () => {
                 className="w-full sm:w-auto px-4 py-2.5 bg-[#181a20] border border-stone-800 rounded-lg text-xs text-stone-200 focus:outline-none focus:border-amber-500"
               >
                 <option value="all">All Statuses</option>
+                <option value="pending_confirmation">Awaiting Confirmation</option>
                 <option value="Pending">Pending</option>
                 <option value="Confirmed">Confirmed</option>
                 <option value="Preparing">Preparing</option>
@@ -628,8 +950,12 @@ export const AdminDashboard: React.FC = () => {
                             <td className="p-4">
                               <span
                                 className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                                  order.status === 'Pending'
-                                    ? 'bg-amber-950/70 border-amber-600/60 text-amber-300 animate-pulse'
+                                  order.status === 'pending_confirmation'
+                                    ? 'bg-amber-950/80 border-amber-500/80 text-amber-300 animate-pulse'
+                                    : order.status === 'Pending'
+                                    ? 'bg-amber-950/70 border-amber-600/60 text-amber-300'
+                                    : order.status === 'Confirmed'
+                                    ? 'bg-blue-950/70 border-blue-600/60 text-blue-300'
                                     : order.status === 'Preparing'
                                     ? 'bg-purple-950/70 border-purple-600/60 text-purple-300'
                                     : order.status === 'Completed'
@@ -639,7 +965,7 @@ export const AdminDashboard: React.FC = () => {
                                     : 'bg-stone-900 border-stone-700 text-stone-200'
                                 }`}
                               >
-                                {order.status}
+                                {order.status === 'pending_confirmation' ? 'Awaiting Confirmation' : order.status}
                               </span>
                             </td>
 
@@ -651,6 +977,7 @@ export const AdminDashboard: React.FC = () => {
                                 }
                                 className="px-2.5 py-1.5 bg-stone-900 border border-stone-700 rounded text-xs text-white focus:outline-none focus:border-amber-500"
                               >
+                                <option value="pending_confirmation">Awaiting Confirmation</option>
                                 <option value="Pending">Pending</option>
                                 <option value="Confirmed">Confirmed</option>
                                 <option value="Preparing">Preparing</option>
@@ -716,15 +1043,23 @@ export const AdminDashboard: React.FC = () => {
                   </div>
 
                   <div className="text-right text-xs space-y-1 mb-6">
-                    <div>Subtotal: Rs. {selectedOrder.subtotal?.toLocaleString()}</div>
-                    <div>Delivery Fee: Rs. {selectedOrder.deliveryFee}</div>
-                    <div className="text-sm font-bold text-amber-400">Total: Rs. {selectedOrder.total?.toLocaleString()}</div>
+                    <div>Food Subtotal: Rs. {(selectedOrder.subtotal || 0).toLocaleString()}</div>
+                    <div>
+                      Delivery Fee: {selectedOrder.orderType === 'delivery'
+                        ? selectedOrder.deliveryFee != null
+                          ? `Rs. ${selectedOrder.deliveryFee}`
+                          : 'To be confirmed on WhatsApp'
+                        : 'Free (Pickup)'}
+                    </div>
+                    <div className="text-sm font-bold text-amber-400">
+                      Total: Rs. {(selectedOrder.total || selectedOrder.subtotal || 0).toLocaleString()}
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between gap-3">
                     <a
-                      href={`https://wa.me/923100968734?text=${encodeURIComponent(
-                        `Dragon Wok Order Update: ${selectedOrder.orderId} for ${selectedOrder.customerName}. Current Status: ${selectedOrder.status}`
+                      href={`https://wa.me/${selectedOrder.customerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                        `Salam ${selectedOrder.customerName}, Dragon Wok Mandian update on Order #${selectedOrder.orderId}: Status is now ${selectedOrder.status}.`
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"

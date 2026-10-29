@@ -98,19 +98,19 @@ service cloud.firestore {
         && incoming().items.size() <= 50
         && incoming().total is number
         && incoming().total >= 0
-        && incoming().status in ['Pending', 'Confirmed', 'Preparing', 'Ready', 'Out for Delivery', 'Completed', 'Cancelled']
+        && incoming().status in ['pending_confirmation', 'Pending', 'Confirmed', 'Preparing', 'Ready', 'Out for Delivery', 'Completed', 'Cancelled']
         && (
           (isSignedIn() && incoming().userId == request.auth.uid) ||
           incoming().userId == 'guest'
         );
 
-      // Update order: Staff/Admin can update status; Admin can update everything
+      // Update order: Staff/Admin can update status and confirmation details; Admin can update everything
       allow update: if isValidId(orderId) && (
         isAdmin() ||
         (
           isStaff() &&
-          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
-          incoming().status in ['Pending', 'Confirmed', 'Preparing', 'Ready', 'Out for Delivery', 'Completed', 'Cancelled']
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'deliveryFee', 'total', 'confirmedAt', 'confirmedBy']) &&
+          incoming().status in ['pending_confirmation', 'Pending', 'Confirmed', 'Preparing', 'Ready', 'Out for Delivery', 'Completed', 'Cancelled']
         )
       );
 

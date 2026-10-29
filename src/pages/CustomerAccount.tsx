@@ -43,12 +43,14 @@ export interface StoredOrder {
     portionLabel?: string;
   }[];
   subtotal: number;
-  deliveryFee: number;
+  deliveryFee?: number | null;
   total: number;
-  status: 'Pending' | 'Confirmed' | 'Preparing' | 'Ready' | 'Out for Delivery' | 'Completed' | 'Cancelled';
+  status: 'pending_confirmation' | 'Pending' | 'Confirmed' | 'Preparing' | 'Ready' | 'Out for Delivery' | 'Completed' | 'Cancelled';
   paymentMethod: string;
   createdAt: string;
   updatedAt?: string;
+  confirmedAt?: string;
+  confirmedBy?: string;
 }
 
 export const CustomerAccount: React.FC = () => {
@@ -197,8 +199,9 @@ export const CustomerAccount: React.FC = () => {
   // Status visual pill styling
   const getStatusBadge = (status: StoredOrder['status']) => {
     switch (status) {
+      case 'pending_confirmation':
       case 'Pending':
-        return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-950/70 border border-amber-600/60 text-amber-300">🟡 Pending</span>;
+        return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-950/70 border border-amber-600/60 text-amber-300 animate-pulse">🟡 Awaiting Confirmation</span>;
       case 'Confirmed':
         return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-950/70 border border-blue-600/60 text-blue-300">🔵 Confirmed</span>;
       case 'Preparing':
@@ -429,7 +432,7 @@ export const CustomerAccount: React.FC = () => {
               </div>
             ) : (
               orders.map((order) => {
-                const isActive = ['Pending', 'Confirmed', 'Preparing', 'Ready', 'Out for Delivery'].includes(order.status);
+                const isActive = ['pending_confirmation', 'Pending', 'Confirmed', 'Preparing', 'Ready', 'Out for Delivery'].includes(order.status);
                 const orderDate = new Date(order.createdAt).toLocaleString('en-US', {
                   timeZone: 'Asia/Karachi',
                   dateStyle: 'medium',
@@ -473,11 +476,11 @@ export const CustomerAccount: React.FC = () => {
                           <span>Live Order Progress</span>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
-                          <div className={`p-2 rounded-lg border ${order.status === 'Pending' ? 'bg-amber-500/20 border-amber-500 text-amber-300 font-bold' : 'bg-stone-950 border-stone-800 text-stone-400'}`}>
-                            1. Received
+                          <div className={`p-2 rounded-lg border ${['pending_confirmation', 'Pending'].includes(order.status) ? 'bg-amber-500/20 border-amber-500 text-amber-300 font-bold' : 'bg-stone-950 border-stone-800 text-stone-400'}`}>
+                            1. Awaiting Confirmation
                           </div>
                           <div className={`p-2 rounded-lg border ${['Confirmed', 'Preparing'].includes(order.status) ? 'bg-purple-500/20 border-purple-500 text-purple-300 font-bold' : 'bg-stone-950 border-stone-800 text-stone-400'}`}>
-                            2. In the Wok
+                            2. Confirmed & In Wok
                           </div>
                           <div className={`p-2 rounded-lg border ${order.status === 'Ready' ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 font-bold' : 'bg-stone-950 border-stone-800 text-stone-400'}`}>
                             3. Packed & Ready
@@ -527,7 +530,15 @@ export const CustomerAccount: React.FC = () => {
                         return (
                           <div className="text-xs text-stone-400 space-y-1">
                             <div>Subtotal: Rs. {finalSubtotal.toLocaleString()}</div>
-                            {delivery > 0 && <div>Delivery Fee: Rs. {delivery}</div>}
+                            {order.orderType === 'delivery' ? (
+                              delivery > 0 ? (
+                                <div>Delivery Fee: Rs. {delivery}</div>
+                              ) : (
+                                <div className="text-amber-400 italic">Delivery Fee: To be confirmed on WhatsApp</div>
+                              )
+                            ) : (
+                              <div>Delivery Fee: Free (Counter Pickup)</div>
+                            )}
                             <div className="text-sm font-bold text-white pt-1">
                               Total: <span className="text-amber-400">Rs. {finalTotal.toLocaleString()}</span>
                               <span className="ml-2 text-[10px] font-normal uppercase text-stone-400">

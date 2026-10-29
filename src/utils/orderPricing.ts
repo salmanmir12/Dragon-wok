@@ -1,6 +1,7 @@
 /**
  * Authoritative Order Pricing Calculation Engine
  * Used consistently across Cart, Checkout, Order Confirmation, and Kitchen Dashboard.
+ * Adheres strictly to manual delivery confirmation: Never defaults to Rs. 150.
  */
 
 export interface OrderLineItem {
@@ -16,13 +17,14 @@ export interface OrderLineItem {
 export interface CalculatedOrderPricing {
   items: OrderLineItem[];
   subtotal: number;
-  deliveryFee: number;
+  deliveryFee: number | null;
   total: number;
+  deliveryPendingConfirmation: boolean;
 }
 
 /**
- * Pure numeric calculation of item subtotals, order subtotal, delivery charges, and final payable total.
- * Never calculates from display strings or defaults to 150 when items exist.
+ * Pure numeric calculation of item subtotals, food subtotal, and optional confirmed delivery charges.
+ * Never defaults to 150. Delivery charges remain unconfirmed / null until staff confirms.
  */
 export function calculateOrderPricing(
   items: {
@@ -34,7 +36,7 @@ export function calculateOrderPricing(
     portionLabel?: string | null;
   }[],
   orderType: 'Delivery' | 'Pickup' | 'delivery' | 'pickup',
-  deliveryFeeSetting: number = 150
+  confirmedDeliveryFee?: number | null
 ): CalculatedOrderPricing {
   const isDelivery = String(orderType).toLowerCase() === 'delivery';
 
@@ -56,14 +58,17 @@ export function calculateOrderPricing(
 
   const subtotal = processedItems.reduce((acc, curr) => acc + curr.itemTotal, 0);
 
-  // Delivery fee applies ONLY for delivery orders; free for pickup
-  const deliveryFee = isDelivery ? (Number(deliveryFeeSetting) || 150) : 0;
-  const total = subtotal + deliveryFee;
+  // Delivery fee is 0 for pickup; for delivery it is only added if explicitly confirmed
+  const hasConfirmedFee = typeof confirmedDeliveryFee === 'number' && confirmedDeliveryFee >= 0;
+  const deliveryFee = isDelivery ? (hasConfirmedFee ? confirmedDeliveryFee : null) : 0;
+  const deliveryPendingConfirmation = isDelivery && !hasConfirmedFee;
+  const total = subtotal + (deliveryFee || 0);
 
   return {
     items: processedItems,
     subtotal,
     deliveryFee,
     total,
+    deliveryPendingConfirmation,
   };
 }

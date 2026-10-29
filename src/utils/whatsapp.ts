@@ -3,44 +3,66 @@ import { CartItem, CustomerDetails } from '../context/OrderContext';
 export const RESTAURANT_WHATSAPP_NUMBER = '923100968734'; // 0310 0968734 in international format
 export const RESTAURANT_PHONE_DISPLAY = '0310 0968734';
 
+export interface WhatsAppOrderItem {
+  name: string;
+  price: number;
+  quantity: number;
+  portionLabel?: string | null;
+}
+
 /**
- * Builds the clean, professional WhatsApp order text.
+ * Builds the official Dragon Wok Abbottabad WhatsApp order text
+ * adhering strictly to the user-specified format with unconfirmed delivery fee.
  */
 export function formatOrderMessage(
   customer: CustomerDetails,
-  items: CartItem[],
-  totalPrice: number,
-  isClosed: boolean
+  items: (CartItem | WhatsAppOrderItem)[],
+  foodSubtotal: number,
+  isClosed: boolean,
+  orderId?: string
 ): string {
-  const customerLines = [
-    '*Customer Details*',
-    `Name: ${customer.name.trim()}`,
-    `Phone: ${customer.phone.trim()}`,
-    `Order Type: ${customer.orderType}`,
-  ];
+  const cleanOrderId = orderId ? orderId.trim() : `DW-${Math.floor(100000 + Math.random() * 900000)}`;
 
-  if (customer.orderType === 'Delivery' && customer.address.trim()) {
-    customerLines.push(`Address: ${customer.address.trim()}`);
+  const addressLine =
+    customer.orderType === 'Delivery'
+      ? customer.address.trim() || 'Abbottabad (Address to be confirmed)'
+      : 'Pickup from Dragon Wok Counter (Jadoon Plaza Phase 1 Mandian, Abbottabad)';
+
+  const itemLines = (items || []).map((item) => {
+    const qty = Math.max(1, Number(item.quantity) || 1);
+    const unitPrice = Number(item.price) || 0;
+    const lineTotal = unitPrice * qty;
+    const portion = item.portionLabel ? ` (${item.portionLabel})` : '';
+    return `- ${item.name}${portion} × ${qty} = Rs. ${lineTotal.toLocaleString()}`;
+  });
+
+  const formattedSubtotal = `Rs. ${foodSubtotal.toLocaleString()}`;
+
+  let message = `NEW ORDER — DRAGON WOK ABBOTTABAD\n\n`;
+  message += `Order ID: ${cleanOrderId}\n\n`;
+  message += `Customer: ${customer.name.trim()}\n`;
+  message += `Phone: ${customer.phone.trim()}\n`;
+  message += `Delivery Address: ${addressLine}\n\n`;
+  message += `Items:\n${itemLines.join('\n')}\n\n`;
+  message += `Food Subtotal: ${formattedSubtotal}\n`;
+  
+  if (customer.orderType === 'Delivery') {
+    message += `Delivery Charges: To be confirmed by restaurant\n`;
+    message += `Final Total: ${formattedSubtotal} + delivery charges\n\n`;
+  } else {
+    message += `Delivery Charges: Free (Counter Pickup)\n`;
+    message += `Final Total: ${formattedSubtotal}\n\n`;
   }
-
-  const orderLines = items.map(
-    (item) =>
-      `${item.quantity} × ${item.name} — Rs. ${(item.price * item.quantity).toLocaleString()}`
-  );
-
-  let message = `Hello Dragon Wok! 👋\n\nI would like to place an order.\n\n${customerLines.join(
-    '\n'
-  )}\n\n*Order*\n${orderLines.join('\n')}\n\n*Subtotal: Rs. ${totalPrice.toLocaleString()}*`;
 
   if (customer.notes && customer.notes.trim()) {
-    message += `\n\nNotes:\n${customer.notes.trim()}`;
+    message += `Notes: ${customer.notes.trim()}\n\n`;
   }
+
+  message += `Status: Awaiting restaurant confirmation.`;
 
   if (isClosed) {
-    message += `\n\n*(Note: Sent while Dragon Wok is closed. Please prepare upon opening at 12:00 PM)*`;
+    message += `\n\n*(Note: Sent outside regular hours. Staff will confirm upon opening at 12:00 PM)*`;
   }
-
-  message += `\n\nThank you!`;
 
   return message;
 }
@@ -50,11 +72,12 @@ export function formatOrderMessage(
  */
 export function generateWhatsAppOrderUrl(
   customer: CustomerDetails,
-  items: CartItem[],
-  totalPrice: number,
-  isClosed: boolean
+  items: (CartItem | WhatsAppOrderItem)[],
+  foodSubtotal: number,
+  isClosed: boolean,
+  orderId?: string
 ): string {
-  const message = formatOrderMessage(customer, items, totalPrice, isClosed);
+  const message = formatOrderMessage(customer, items, foodSubtotal, isClosed, orderId);
   return `https://wa.me/${RESTAURANT_WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 }
 
@@ -62,6 +85,6 @@ export function generateWhatsAppOrderUrl(
  * Creates general chat URL for floating button
  */
 export function getGeneralWhatsAppChatUrl(): string {
-  const message = 'Hello Dragon Wok! I would like to know more about your menu.';
+  const message = 'Assalam-o-Alaikum, I need help with my Dragon Wok order.';
   return `https://wa.me/${RESTAURANT_WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 }

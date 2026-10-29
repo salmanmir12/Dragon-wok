@@ -1,109 +1,79 @@
 import React from 'react';
-import { Flame, ArrowRight, ShoppingBag, MapPin, Clock } from 'lucide-react';
+import { Flame, MapPin, Clock, Star, Sparkles } from 'lucide-react';
 import { useOrder } from '../context/OrderContext';
 
 export const Hero: React.FC = () => {
-  const { setIsCartOpen, restaurantStatus } = useOrder();
+  const { restaurantStatus } = useOrder();
 
   return (
-    <section id="home" className="relative min-h-[92vh] lg:min-h-screen flex items-center justify-center overflow-hidden bg-[#121316]">
-      {/* Background Image with Cinematic Scrim */}
+    <section className="relative pt-20 sm:pt-24 pb-4 sm:pb-6 bg-[#121316] border-b border-stone-800/80 overflow-hidden">
+      {/* Subtle atmospheric background glow */}
       <div className="absolute inset-0 z-0 bg-[#121316]">
-        <picture>
-          <source srcSet="/images/restaurant_exterior.webp" type="image/webp" />
-          <img
-            src="/images/restaurant_exterior.jpg"
-            alt="Front exterior view of Dragon Wok restaurant at Jadoon Plaza Phase 1, Abbottabad"
-            referrerPolicy="no-referrer"
-            loading="eager"
-            fetchPriority="high"
-            onError={(e) => {
-              // Hide broken image frame gracefully if image fails
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = '/images/hero_wok_fire.jpg';
-            }}
-            className="w-full h-full object-cover object-center scale-105 filter brightness-[0.4] contrast-[1.1] transition-transform duration-1000"
-          />
-        </picture>
-        {/* Layered Gradients for guaranteed WCAG AA text legibility */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#121316] via-[#121316]/60 to-[#121316]/70" />
-        <div className="absolute inset-0 bg-radial-gradient from-transparent via-[#121316]/50 to-[#121316]/90" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#991b1b]/15 via-transparent to-amber-950/15" />
+        <div className="absolute top-0 right-1/4 w-96 h-48 bg-amber-500/5 rounded-full blur-3xl" />
       </div>
 
-      {/* Decorative Subtle Accent Hairline */}
-      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#b91c1c]/40 to-transparent z-10" />
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 py-2">
+          {/* Left / Center: Brand & Compact Heading */}
+          <div>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-900 border border-stone-800 text-amber-400 text-[11px] font-bold tracking-wider uppercase">
+                <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                <span>Dragon Wok • Mandian, Abbottabad</span>
+              </span>
 
-      {/* Content Container */}
-      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-28 text-center flex flex-col items-center">
-        {/* Small Label & Realtime Status Indicator */}
-        <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-stone-900/80 border border-stone-700/60 text-amber-400 text-xs font-semibold tracking-widest uppercase shadow-inner">
-            <Flame className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-            <span>AUTHENTIC CHINESE-INSPIRED CUISINE</span>
+              {/* Status Pill */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-900/90 border border-stone-800 text-[11px] font-semibold">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    restaurantStatus.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                  }`}
+                />
+                <span
+                  className={`font-bold uppercase tracking-wider ${
+                    restaurantStatus.isOpen ? 'text-emerald-400' : 'text-rose-400'
+                  }`}
+                >
+                  {restaurantStatus.isOpen ? 'OPEN NOW' : 'CLOSED'}
+                </span>
+                <span className="text-stone-600">·</span>
+                <span className="text-stone-400 font-mono text-[10px]">
+                  {restaurantStatus.subText}
+                </span>
+              </div>
+            </div>
+
+            {/* Requirement 4: Compact "Order Your Favorites" Heading */}
+            <h1 className="font-serif-brand text-2xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white mb-1.5">
+              Order Your Favorites
+            </h1>
+            <p className="text-stone-300 text-xs sm:text-sm max-w-2xl leading-relaxed">
+              Authentic wok-tossed chowmein, crispy momos, signature chicken & beef gravies, and feast combos delivered hot across Abbottabad.
+            </p>
           </div>
 
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-stone-950/80 border border-stone-800 text-xs font-semibold">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                restaurantStatus.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
-              }`}
-            />
-            <span
-              className={`tracking-wider uppercase text-[11px] font-bold ${
-                restaurantStatus.isOpen ? 'text-emerald-400' : 'text-rose-400'
-              }`}
-            >
-              {restaurantStatus.statusText}
-            </span>
-            <span className="text-stone-500">·</span>
-            <span className="text-stone-400 text-[11px]">{restaurantStatus.subText}</span>
+          {/* Right: Compact Trust Badges & Verified Ratings */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-900/80 border border-stone-800 text-stone-200">
+              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+              <span className="font-bold text-white font-mono">4.4</span>
+              <span className="text-stone-400 text-[11px]">Google (20+)</span>
+            </div>
+
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-900/80 border border-stone-800 text-stone-200">
+              <Star className="w-3.5 h-3.5 text-rose-400 fill-rose-500" />
+              <span className="font-bold text-white font-mono">4.5</span>
+              <span className="text-stone-400 text-[11px]">Foodpanda (450+)</span>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-900/80 border border-stone-800 text-stone-300 text-[11px]">
+              <MapPin className="w-3 h-3 text-[#b91c1c]" />
+              <span>Jadoon Plaza Phase 1</span>
+            </div>
           </div>
-        </div>
-
-        {/* Main Heading */}
-        <h1 
-          style={{ textWrap: 'balance' }}
-          className="font-serif-brand text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight text-white mb-6 leading-[1.15]"
-        >
-          Bold Chinese Flavors. <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-amber-400 to-[#b91c1c]">
-            Made Fresh.
-          </span>
-        </h1>
-
-        {/* Supporting Text */}
-        <p className="max-w-2xl text-stone-300 text-base sm:text-lg md:text-xl font-normal leading-relaxed mb-10">
-          Experience bold flavors, wok-tossed favorites, and Chinese-inspired cuisine in the heart of Abbottabad.
-        </p>
-
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto justify-center mb-12">
-          <a
-            href="#menu"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#991b1b] hover:bg-[#b91c1c] text-white px-8 py-4 rounded-md font-semibold text-sm tracking-wider uppercase transition-all shadow-lg shadow-red-950/50 hover:translate-y-[-1px] active:translate-y-[0px] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
-          >
-            <span>Explore Menu</span>
-            <ArrowRight className="w-4 h-4" />
-          </a>
-
-          <button
-            onClick={() => setIsCartOpen(true)}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-stone-900/90 hover:bg-stone-800 text-stone-100 border border-stone-700/80 hover:border-amber-500/60 px-8 py-4 rounded-md font-semibold text-sm tracking-wider uppercase transition-all shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
-          >
-            <ShoppingBag className="w-4 h-4 text-amber-400" />
-            <span>Order Now</span>
-          </button>
-        </div>
-
-        {/* Location Subtitle in Hero */}
-        <div className="flex items-center gap-2 text-stone-400 text-xs sm:text-sm font-medium tracking-wide">
-          <MapPin className="w-4 h-4 text-[#b91c1c]" />
-          <span>Jadoon Plaza Phase 1 • Abbottabad</span>
         </div>
       </div>
-
-      {/* Bottom fade into next section */}
-      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#121316] to-transparent pointer-events-none" />
     </section>
   );
 };

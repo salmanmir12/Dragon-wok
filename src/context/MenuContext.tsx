@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { MENU_ITEMS, SPECIAL_DEALS, FEATURED_DISHES, MenuItem as DefaultMenuItem } from '../data/menuData';
+import { getDishPhoto } from '../components/MenuCard';
 
 export interface DynamicMenuItem {
   id: string;
@@ -71,7 +72,7 @@ interface MenuContextType {
 const DEFAULT_SETTINGS: RestaurantSettings = {
   isOpenOverride: null,
   announcement: 'Fresh wok dishes tossed to order • Delivery across Abbottabad',
-  deliveryFee: 150,
+  deliveryFee: 0,
   estimatedDeliveryTime: '30-45 mins',
   phone: '0310 0968734',
   address: 'Jadoon Plaza Phase 1, Mandian, Abbottabad',
@@ -90,7 +91,7 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
       price: item.price ?? 0,
       familyPrice: item.familyPrice,
       description: item.note || '',
-      image: item.image || '/images/hero_wok_fire.jpg',
+      image: item.image || getDishPhoto(item.name, item.category, undefined, item.id),
       available: true,
       badge: item.badge,
     }));
@@ -105,7 +106,12 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!snapshot.empty) {
         const items: DynamicMenuItem[] = [];
         snapshot.forEach((docSnap) => {
-          items.push({ id: docSnap.id, ...(docSnap.data() as Omit<DynamicMenuItem, 'id'>) });
+          const raw = docSnap.data() as Omit<DynamicMenuItem, 'id'>;
+          items.push({
+            id: docSnap.id,
+            ...raw,
+            image: getDishPhoto(raw.name, raw.category, raw.image, docSnap.id),
+          });
         });
         setMenuItems(items);
       }
@@ -306,7 +312,7 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     const subtotal = validatedItems.reduce((acc, curr) => acc + curr.itemTotal, 0);
-    const deliveryFee = settings.deliveryFee || 150;
+    const deliveryFee = typeof settings.deliveryFee === 'number' ? settings.deliveryFee : 0;
     const total = subtotal + deliveryFee;
 
     return { validatedItems, subtotal, deliveryFee, total };

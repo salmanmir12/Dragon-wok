@@ -172,34 +172,19 @@ export const Menu: React.FC = () => {
   };
 
   return (
-    <section id="menu" className="pt-20 pb-28 bg-[#121316] relative scroll-mt-14">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Modern Menu Hero Header */}
-        <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20 mb-3">
-            <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-            <span>Digital Ordering Menu</span>
-          </div>
-          <h2 className="font-serif-brand text-3xl sm:text-5xl font-bold tracking-tight text-white mb-3">
-            Explore Dragon Wok Menu
-          </h2>
-          <p className="text-stone-300 text-sm sm:text-base leading-relaxed">
-            Freshly prepared wok dishes, crispy starters, authentic chowmein, juicy momos, and signature Szechwan hot pots.
-          </p>
-        </div>
-
+    <section id="menu" className="pt-4 sm:pt-6 pb-28 bg-[#121316] relative scroll-mt-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
         {/* Search & Quick Filter Bar */}
-        <div className="max-w-2xl mx-auto mb-6">
+        <div className="max-w-xl mx-auto">
           <div className="relative">
-            <Search className="w-5 h-5 text-stone-400 absolute left-4 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-stone-400 absolute left-4 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search dishes (e.g. Chowmein, Momos, Hot Pot, Wings, Manchurian)..."
               aria-label="Search dishes"
-              className="w-full bg-[#181a20] border border-stone-800 rounded-2xl pl-12 pr-10 py-3.5 text-sm text-white placeholder-stone-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all shadow-inner"
+              className="w-full bg-[#181a20] border border-stone-800 rounded-xl pl-11 pr-10 py-2.5 text-xs sm:text-sm text-white placeholder-stone-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all shadow-inner"
             />
             {searchQuery && (
               <button
@@ -207,7 +192,7 @@ export const Menu: React.FC = () => {
                 className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-white"
                 title="Clear search"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
@@ -215,7 +200,7 @@ export const Menu: React.FC = () => {
       </div>
 
       {/* KFC-STYLE STICKY CATEGORY NAVIGATION BAR */}
-      <div className="sticky top-[64px] sm:top-[72px] z-30 bg-[#121316]/95 backdrop-blur-md border-y border-stone-800/90 shadow-xl py-2.5 mb-8">
+      <div className="sticky top-[52px] sm:top-[60px] z-30 bg-[#121316]/95 backdrop-blur-md border-y border-stone-800/90 shadow-xl py-2 mb-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div
             ref={categoryRailRef}

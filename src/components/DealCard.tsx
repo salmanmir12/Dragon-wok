@@ -33,15 +33,18 @@ export const DealCard: React.FC<DealCardProps> = ({ deal }) => {
       <div>
         {/* Deal Visual Header */}
         <div className="relative aspect-[16/9] overflow-hidden bg-stone-900">
-          <picture>
-            <source srcSet="/images/hero_wok_fire.webp" type="image/webp" />
-            <img
-              src="/images/hero_wok_fire.jpg"
-              alt={deal.title}
-              loading="lazy"
-              className="w-full h-full object-cover object-center"
-            />
-          </picture>
+          <img
+            src={deal.image || `/images/dishes/${deal.id.replace(/-/g, '_')}.jpg`}
+            alt={deal.title}
+            loading="lazy"
+            onError={(e) => {
+              const target = e.currentTarget;
+              if (!target.src.includes('deal_super_1.jpg')) {
+                target.src = '/images/dishes/deal_super_1.jpg';
+              }
+            }}
+            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-[#181a20] via-black/40 to-black/30" />
 
           {/* Badges */}

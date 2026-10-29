@@ -120,29 +120,30 @@ export const KitchenDashboard: React.FC = () => {
         setOrders(list);
         setLoading(false);
 
-        // Detect newly arrived orders in real-time
+        // Detect newly confirmed orders in real-time
         if (!isFirstLoadRef.current) {
           snapshot.docChanges().forEach((change) => {
-            if (change.type === 'added') {
-              const newOrder = change.doc.data() as StoredOrder;
-              const orderId = newOrder.orderId || change.doc.id;
+            const data = change.doc.data() as StoredOrder;
+            const orderId = data.orderId || change.doc.id;
 
-              // Rule: only genuinely new Pending orders not yet in known list and not yet announced
-              if (
-                newOrder.status === 'Pending' &&
-                !knownOrderIdsRef.current.has(orderId) &&
-                !announcedOrderIdsRef.current.has(orderId)
-              ) {
-                announcedOrderIdsRef.current.add(orderId);
-                if (!soundMuted) {
-                  setActiveAlarmOrderId(orderId);
-                  kitchenAudioAlert.startOrderAlarm(orderId, newOrder.total, newOrder.customerName);
-                }
+            // Kitchen triggers ONLY when an order is Confirmed by staff (or legacy Pending)
+            // and has NOT yet been announced to this kitchen terminal
+            const isConfirmedOrActive = data.status === 'Confirmed' || data.status === 'Pending';
+            if (
+              (change.type === 'added' || change.type === 'modified') &&
+              isConfirmedOrActive &&
+              data.status !== 'pending_confirmation' &&
+              !announcedOrderIdsRef.current.has(orderId)
+            ) {
+              announcedOrderIdsRef.current.add(orderId);
+              if (!soundMuted) {
+                setActiveAlarmOrderId(orderId);
+                kitchenAudioAlert.startOrderAlarm(orderId, data.total, data.customerName);
               }
             }
           });
         } else {
-          // On first load, record existing orders without playing sound (Requirement 4: Do not play for old orders on first load)
+          // On first load, record existing orders without playing sound (Requirement: Do not play for old orders on first load)
           currentBatchIds.forEach((id) => announcedOrderIdsRef.current.add(id));
           isFirstLoadRef.current = false;
         }
@@ -257,8 +258,11 @@ export const KitchenDashboard: React.FC = () => {
     );
   }
 
-  // Filter orders
+  // Filter orders - Step 4: Kitchen Dashboard must NOT display unconfirmed orders
   const filteredOrders = orders.filter((o) => {
+    // Strictly exclude unconfirmed orders waiting for staff/WhatsApp confirmation
+    if (o.status === 'pending_confirmation') return false;
+
     // Search query filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -272,14 +276,14 @@ export const KitchenDashboard: React.FC = () => {
 
     // Status filter
     if (statusFilter === 'active') {
-      return ['Pending', 'Confirmed', 'Preparing', 'Ready', 'Out for Delivery'].includes(o.status);
+      return ['Confirmed', 'Preparing', 'Ready', 'Out for Delivery', 'Pending'].includes(o.status);
     }
     if (statusFilter === 'all') return true;
     return o.status === statusFilter;
   });
 
-  const pendingCount = orders.filter((o) => o.status === 'Pending').length;
-  const cookingCount = orders.filter((o) => ['Confirmed', 'Preparing'].includes(o.status)).length;
+  const confirmedCount = orders.filter((o) => o.status === 'Confirmed' || o.status === 'Pending').length;
+  const cookingCount = orders.filter((o) => o.status === 'Preparing').length;
   const readyCount = orders.filter((o) => ['Ready', 'Out for Delivery'].includes(o.status)).length;
 
   return (
@@ -479,19 +483,19 @@ export const KitchenDashboard: React.FC = () => {
         {/* Quick KPI Stats Rail */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           <div
-            onClick={() => setStatusFilter('Pending')}
+            onClick={() => setStatusFilter('Confirmed')}
             className={`p-4 rounded-2xl border cursor-pointer transition ${
-              statusFilter === 'Pending'
+              statusFilter === 'Confirmed'
                 ? 'bg-amber-500/15 border-amber-500 text-white'
                 : 'bg-[#15171e] border-stone-800/80 hover:border-stone-700 text-stone-300'
             }`}
           >
             <div className="flex items-center justify-between text-xs font-semibold mb-1">
-              <span className="uppercase tracking-wider text-amber-400">Needs Acceptance</span>
+              <span className="uppercase tracking-wider text-amber-400">Needs Cooking</span>
               <Bell className="w-4 h-4 text-amber-400" />
             </div>
-            <div className="text-2xl font-bold font-mono text-white">{pendingCount}</div>
-            <p className="text-[11px] text-stone-400 mt-0.5">Pending kitchen review</p>
+            <div className="text-2xl font-bold font-mono text-white">{confirmedCount}</div>
+            <p className="text-[11px] text-stone-400 mt-0.5">Confirmed by staff</p>
           </div>
 
           <div
@@ -549,10 +553,9 @@ export const KitchenDashboard: React.FC = () => {
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full sm:w-auto pb-1 sm:pb-0">
             {[
               { id: 'active', label: 'All Active' },
-              { id: 'Pending', label: `Pending (${pendingCount})` },
-              { id: 'Confirmed', label: 'Accepted' },
-              { id: 'Preparing', label: 'In Wok' },
-              { id: 'Ready', label: 'Ready' },
+              { id: 'Confirmed', label: `Confirmed (${confirmedCount})` },
+              { id: 'Preparing', label: `In Wok (${cookingCount})` },
+              { id: 'Ready', label: `Ready (${readyCount})` },
               { id: 'Completed', label: 'Completed' },
               { id: 'all', label: 'All Orders' },
             ].map((tab) => (
@@ -769,7 +772,9 @@ export const KitchenDashboard: React.FC = () => {
                         <span>Delivery Fee:</span>
                         <span className="font-mono text-stone-200">
                           {order.orderType === 'delivery'
-                            ? `Rs. ${Number(order.deliveryFee) || 150}`
+                            ? order.deliveryFee != null
+                              ? `Rs. ${order.deliveryFee}`
+                              : 'To be confirmed'
                             : 'Free (Pickup)'}
                         </span>
                       </div>

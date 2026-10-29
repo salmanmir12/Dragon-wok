@@ -21,21 +21,22 @@ export interface SpecialDeal {
   items: string[];
   badge?: string;
   popular?: boolean;
+  image?: string;
 }
 
 export const MENU_ITEMS: MenuItem[] = [
   // --- STARTERS ---
-  { id: 'st-1', name: 'Plain Fries', category: 'Starters', price: 300 },
-  { id: 'st-2', name: 'Honey Wings', category: 'Starters', price: 600 },
-  { id: 'st-3', name: 'Korean Chicken', category: 'Starters', price: 500, isPopular: true },
-  { id: 'st-4', name: 'BBQ Wings', category: 'Starters', price: 650 },
-  { id: 'st-5', name: 'Drum Sticks', category: 'Starters', price: 250 },
-  { id: 'st-6', name: 'Finger Fish (6 Pcs)', category: 'Starters', price: 950 },
-  { id: 'st-7', name: 'Daka Fish', category: 'Starters', price: 850 },
-  { id: 'st-8', name: 'Daka Chicken', category: 'Starters', price: 700 },
-  { id: 'st-9', name: 'Chicken Chilli Chips', category: 'Starters', price: 900 },
-  { id: 'st-10', name: 'Chicken Chasewunts Chips', category: 'Starters', price: 900 },
-  { id: 'st-11', name: 'Chicken Manchurian Chips', category: 'Starters', price: 900 },
+  { id: 'st-1', name: 'Plain Fries', category: 'Starters', price: 300, image: '/images/dishes/plain_fries.jpg' },
+  { id: 'st-2', name: 'Honey Wings', category: 'Starters', price: 600, image: '/images/dishes/honey_wings.jpg' },
+  { id: 'st-3', name: 'Korean Chicken', category: 'Starters', price: 500, isPopular: true, image: '/images/dishes/korean_chicken.jpg' },
+  { id: 'st-4', name: 'BBQ Wings', category: 'Starters', price: 650, image: '/images/dishes/bbq_wings.jpg' },
+  { id: 'st-5', name: 'Drum Sticks', category: 'Starters', price: 250, image: '/images/dishes/drum_sticks.jpg' },
+  { id: 'st-6', name: 'Finger Fish (6 Pcs)', category: 'Starters', price: 950, image: '/images/dishes/finger_fish.jpg' },
+  { id: 'st-7', name: 'Daka Fish', category: 'Starters', price: 850, image: '/images/dishes/daka_fish.jpg' },
+  { id: 'st-8', name: 'Daka Chicken', category: 'Starters', price: 700, image: '/images/dishes/daka_chicken.jpg' },
+  { id: 'st-9', name: 'Chicken Chilli Chips', category: 'Starters', price: 900, image: '/images/dishes/chicken_chilli_chips.jpg' },
+  { id: 'st-10', name: 'Chicken Chasewunts Chips', category: 'Starters', price: 900, image: '/images/dishes/chicken_cashew_chips.jpg' },
+  { id: 'st-11', name: 'Chicken Manchurian Chips', category: 'Starters', price: 900, image: '/images/dishes/chicken_manchurian_chips.jpg' },
 
   // --- SOUP ---
   { 
@@ -45,6 +46,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 550, 
     familyPrice: 2000, 
     familyLabel: 'Family',
+    image: '/images/dishes/dragon_special_soup.jpg',
     isPopular: true 
   },
   { 
@@ -52,7 +54,8 @@ export const MENU_ITEMS: MenuItem[] = [
     name: 'Chicken Dumpling Noodle Soup', 
     category: 'Soup', 
     price: 1500, 
-    familyLabel: 'Family Bowl' 
+    familyLabel: 'Family Bowl',
+    image: '/images/dishes/dumpling_noodle_soup.jpg'
   },
   { 
     id: 'sp-3', 
@@ -60,7 +63,8 @@ export const MENU_ITEMS: MenuItem[] = [
     category: 'Soup', 
     price: 500, 
     familyPrice: 1500, 
-    familyLabel: 'Family' 
+    familyLabel: 'Family',
+    image: '/images/dishes/szechwan_soup.jpg'
   },
   { 
     id: 'sp-4', 
@@ -68,7 +72,8 @@ export const MENU_ITEMS: MenuItem[] = [
     category: 'Soup', 
     price: 300, 
     familyPrice: 1100, 
-    familyLabel: 'Family' 
+    familyLabel: 'Family',
+    image: '/images/dishes/chicken_corn_soup.jpg'
   },
   { 
     id: 'sp-5', 
@@ -77,7 +82,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 400, 
     familyPrice: 1500, 
     familyLabel: 'Family',
-    image: '/images/dish_hot_pot.jpg',
+    image: '/images/dishes/hot_and_sour_soup.jpg',
     isPopular: true 
   },
   { 
@@ -85,33 +90,34 @@ export const MENU_ITEMS: MenuItem[] = [
     name: 'Chicken Noodle Soup', 
     category: 'Soup', 
     price: 1200, 
-    familyLabel: 'Family Bowl' 
+    familyLabel: 'Family Bowl',
+    image: '/images/dishes/chicken_noodle_soup.jpg'
   },
 
   // --- CHICKEN MAIN COURSE ---
-  { id: 'ck-1', name: 'Chicken Manchurian', category: 'Chicken', price: 1400, image: '/images/hero_wok_fire.jpg', isPopular: true },
-  { id: 'ck-2', name: 'Chicken Cashewnut', category: 'Chicken', price: 1400 },
-  { id: 'ck-3', name: 'Chicken Chilli Dry', category: 'Chicken', price: 1400, isPopular: true },
-  { id: 'ck-4', name: 'Kungpow Chicken', category: 'Chicken', price: 1400 },
-  { id: 'ck-5', name: 'Szechwan Chicken', category: 'Chicken', price: 1400 },
-  { id: 'ck-6', name: 'Seasme Honey Chicken', category: 'Chicken', price: 1400 },
-  { id: 'ck-7', name: 'Garlic Chicken', category: 'Chicken', price: 1400 },
-  { id: 'ck-8', name: 'Chicken Chilli Onion', category: 'Chicken', price: 1400 },
-  { id: 'ck-9', name: 'Chicken W/ Oyster Sauce', category: 'Chicken', price: 1400 },
-  { id: 'ck-10', name: 'Sweet & Sour Chicken', category: 'Chicken', price: 1400 },
+  { id: 'ck-1', name: 'Chicken Manchurian', category: 'Chicken', price: 1400, image: '/images/dishes/chicken_manchurian.jpg', isPopular: true },
+  { id: 'ck-2', name: 'Chicken Cashewnut', category: 'Chicken', price: 1400, image: '/images/dishes/chicken_cashewnut.jpg' },
+  { id: 'ck-3', name: 'Chicken Chilli Dry', category: 'Chicken', price: 1400, image: '/images/dishes/chicken_chilli_dry.jpg', isPopular: true },
+  { id: 'ck-4', name: 'Kungpow Chicken', category: 'Chicken', price: 1400, image: '/images/dishes/kungpow_chicken.jpg' },
+  { id: 'ck-5', name: 'Szechwan Chicken', category: 'Chicken', price: 1400, image: '/images/dishes/szechwan_chicken.jpg' },
+  { id: 'ck-6', name: 'Seasme Honey Chicken', category: 'Chicken', price: 1400, image: '/images/dishes/sesame_honey_chicken.jpg' },
+  { id: 'ck-7', name: 'Garlic Chicken', category: 'Chicken', price: 1400, image: '/images/dishes/garlic_chicken.jpg' },
+  { id: 'ck-8', name: 'Chicken Chilli Onion', category: 'Chicken', price: 1400, image: '/images/dishes/chicken_chilli_onion.jpg' },
+  { id: 'ck-9', name: 'Chicken W/ Oyster Sauce', category: 'Chicken', price: 1400, image: '/images/dishes/chicken_oyster_sauce.jpg' },
+  { id: 'ck-10', name: 'Sweet & Sour Chicken', category: 'Chicken', price: 1400, image: '/images/dishes/sweet_sour_chicken.jpg' },
 
   // --- BEEF ---
-  { id: 'bf-1', name: 'Beef Chilli Dry', category: 'Beef', price: 1500, isPopular: true },
-  { id: 'bf-2', name: 'Pepper Beef', category: 'Beef', price: 1500 },
-  { id: 'bf-3', name: 'Beef in Oyster Sauce', category: 'Beef', price: 1500 },
-  { id: 'bf-4', name: 'Beef Chilli Onion', category: 'Beef', price: 1500 },
-  { id: 'bf-5', name: 'Szechwan Beef', category: 'Beef', price: 1500 },
+  { id: 'bf-1', name: 'Beef Chilli Dry', category: 'Beef', price: 1500, image: '/images/dishes/beef_chilli_dry.jpg', isPopular: true },
+  { id: 'bf-2', name: 'Pepper Beef', category: 'Beef', price: 1500, image: '/images/dishes/pepper_beef.jpg' },
+  { id: 'bf-3', name: 'Beef in Oyster Sauce', category: 'Beef', price: 1500, image: '/images/dishes/beef_oyster_sauce.jpg' },
+  { id: 'bf-4', name: 'Beef Chilli Onion', category: 'Beef', price: 1500, image: '/images/dishes/beef_chilli_onion.jpg' },
+  { id: 'bf-5', name: 'Szechwan Beef', category: 'Beef', price: 1500, image: '/images/dishes/szechwan_beef.jpg' },
 
   // --- FISH ---
-  { id: 'fs-1', name: 'Kungpow Fish', category: 'Fish', price: 1600 },
-  { id: 'fs-2', name: 'Sweet & Sour Fish', category: 'Fish', price: 1600 },
-  { id: 'fs-3', name: 'Garlic Fish', category: 'Fish', price: 1600 },
-  { id: 'fs-4', name: 'Fish Chilli Dry', category: 'Fish', price: 1600 },
+  { id: 'fs-1', name: 'Kungpow Fish', category: 'Fish', price: 1600, image: '/images/dishes/kungpow_fish.jpg' },
+  { id: 'fs-2', name: 'Sweet & Sour Fish', category: 'Fish', price: 1600, image: '/images/dishes/sweet_sour_fish.jpg' },
+  { id: 'fs-3', name: 'Garlic Fish', category: 'Fish', price: 1600, image: '/images/dishes/garlic_fish.jpg' },
+  { id: 'fs-4', name: 'Fish Chilli Dry', category: 'Fish', price: 1600, image: '/images/dishes/fish_chilli_dry.jpg' },
 
   // --- NOODLES ---
   { 
@@ -119,35 +125,35 @@ export const MENU_ITEMS: MenuItem[] = [
     name: 'Chicken Chowmein', 
     category: 'Noodles', 
     price: 749,
-    image: '/images/dish_chowmein.jpg',
+    image: '/images/dishes/chicken_chowmein.jpg',
     isPopular: true 
   },
-  { id: 'nd-2', name: 'Vegetable Chowmein', category: 'Noodles', price: 549 },
-  { id: 'nd-3', name: 'Beef Chowmein', category: 'Noodles', price: 949 },
+  { id: 'nd-2', name: 'Vegetable Chowmein', category: 'Noodles', price: 549, image: '/images/dishes/vegetable_chowmein.jpg' },
+  { id: 'nd-3', name: 'Beef Chowmein', category: 'Noodles', price: 949, image: '/images/dishes/beef_chowmein.jpg' },
   { 
     id: 'nd-4', 
     name: 'Dragon Chowmein', 
     category: 'Noodles', 
     price: 849, 
-    image: '/images/dish_chowmein.jpg',
+    image: '/images/dishes/dragon_chowmein.jpg',
     isSignature: true,
     isPopular: true 
   },
 
   // --- MOMOS ---
-  { id: 'mo-1', name: 'Steam Momos (1 Plate)', category: 'Momos', price: 500, isPopular: true },
+  { id: 'mo-1', name: 'Steam Momos (1 Plate)', category: 'Momos', price: 500, image: '/images/dishes/steam_momos.jpg', isPopular: true },
   { 
     id: 'mo-2', 
     name: 'Fried Momos (1 Plate)', 
     category: 'Momos', 
     price: 550, 
-    image: '/images/dish_momos.jpg',
+    image: '/images/dishes/fried_momos.jpg',
     isPopular: true 
   },
-  { id: 'mo-3', name: 'Half Fried Momos', category: 'Momos', price: 550 },
-  { id: 'mo-4', name: 'Special Momos', category: 'Momos', price: 800 },
-  { id: 'mo-5', name: 'Chilli Momos', category: 'Momos', price: 800 },
-  { id: 'mo-6', name: 'Manchurian Momos', category: 'Momos', price: 800 },
+  { id: 'mo-3', name: 'Half Fried Momos', category: 'Momos', price: 550, image: '/images/dishes/half_fried_momos.jpg' },
+  { id: 'mo-4', name: 'Special Momos', category: 'Momos', price: 800, image: '/images/dishes/special_momos.jpg' },
+  { id: 'mo-5', name: 'Chilli Momos', category: 'Momos', price: 800, image: '/images/dishes/chilli_momos.jpg' },
+  { id: 'mo-6', name: 'Manchurian Momos', category: 'Momos', price: 800, image: '/images/dishes/manchurian_momos.jpg' },
 
   // --- SZECHWAN HOT POT (SIGNATURE) ---
   {
@@ -157,7 +163,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 2500,
     isSignature: true,
     isPopular: true,
-    image: '/images/dish_hot_pot.jpg',
+    image: '/images/dishes/szechwan_hot_pot.jpg',
     ingredients: [
       'Noodles',
       'Sausages',
@@ -173,13 +179,13 @@ export const MENU_ITEMS: MenuItem[] = [
   },
 
   // --- DRINKS ---
-  { id: 'dr-1', name: 'Mint Margrita', category: 'Drinks', price: 300 },
-  { id: 'dr-2', name: 'Gava Mint', category: 'Drinks', price: 400 },
-  { id: 'dr-3', name: 'Lemonade', category: 'Drinks', price: 300 },
-  { id: 'dr-4', name: 'Kit Kat', category: 'Drinks', price: 500 },
-  { id: 'dr-5', name: 'Reo Shake', category: 'Drinks', price: 500 },
-  { id: 'dr-6', name: 'Cold Coffee', category: 'Drinks', price: 400 },
-  { id: 'dr-7', name: 'Chocolate Shake', category: 'Drinks', price: 450 }
+  { id: 'dr-1', name: 'Mint Margrita', category: 'Drinks', price: 300, image: '/images/dishes/mint_margrita.jpg' },
+  { id: 'dr-2', name: 'Gava Mint', category: 'Drinks', price: 400, image: '/images/dishes/gava_mint.jpg' },
+  { id: 'dr-3', name: 'Lemonade', category: 'Drinks', price: 300, image: '/images/dishes/lemonade.jpg' },
+  { id: 'dr-4', name: 'Kit Kat', category: 'Drinks', price: 500, image: '/images/dishes/kit_kat_shake.jpg' },
+  { id: 'dr-5', name: 'Reo Shake', category: 'Drinks', price: 500, image: '/images/dishes/reo_shake.jpg' },
+  { id: 'dr-6', name: 'Cold Coffee', category: 'Drinks', price: 400, image: '/images/dishes/cold_coffee.jpg' },
+  { id: 'dr-7', name: 'Chocolate Shake', category: 'Drinks', price: 450, image: '/images/dishes/chocolate_shake.jpg' }
 ];
 
 export const SPECIAL_DEALS: SpecialDeal[] = [
@@ -193,7 +199,8 @@ export const SPECIAL_DEALS: SpecialDeal[] = [
       'Korean Chicken',
       'Fried Rice'
     ],
-    badge: 'Popular Choice'
+    badge: 'Popular Choice',
+    image: '/images/dishes/deal_super_1.jpg'
   },
   {
     id: 'deal-super-2',
@@ -205,7 +212,8 @@ export const SPECIAL_DEALS: SpecialDeal[] = [
       'Korean Chicken',
       'Fried Rice'
     ],
-    badge: 'Family Favorite'
+    badge: 'Family Favorite',
+    image: '/images/dishes/deal_super_2.jpg'
   },
   {
     id: 'deal-super-3',
@@ -218,7 +226,8 @@ export const SPECIAL_DEALS: SpecialDeal[] = [
       'Twist and Sour Chicken',
       'Fried Rice'
     ],
-    badge: 'Feast Combo'
+    badge: 'Feast Combo',
+    image: '/images/dishes/deal_super_3.jpg'
   },
   {
     id: 'deal-dragon-1',
@@ -232,7 +241,8 @@ export const SPECIAL_DEALS: SpecialDeal[] = [
       'Fried Rice',
       'Szechwan Chicken'
     ],
-    badge: 'Chef Signature'
+    badge: 'Chef Signature',
+    image: '/images/dishes/deal_dragon_1.jpg'
   },
   {
     id: 'deal-dragon-2',
@@ -245,7 +255,8 @@ export const SPECIAL_DEALS: SpecialDeal[] = [
       'Chilli Dry',
       'Fried Rice'
     ],
-    badge: 'Great Value'
+    badge: 'Great Value',
+    image: '/images/dishes/deal_dragon_2.jpg'
   },
   {
     id: 'deal-dragon-3',
@@ -258,7 +269,8 @@ export const SPECIAL_DEALS: SpecialDeal[] = [
       'Fried Rice',
       'Noodles'
     ],
-    badge: 'Grand Platter'
+    badge: 'Grand Platter',
+    image: '/images/dishes/deal_dragon_3.jpg'
   }
 ];
 
@@ -268,7 +280,7 @@ export const FEATURED_DISHES = [
     name: 'Dragon Chowmein',
     price: 849,
     category: 'Noodles',
-    image: '/images/dish_chowmein.jpg',
+    image: '/images/dishes/dragon_chowmein.jpg',
     badge: 'Signature Wok'
   },
   {
@@ -276,7 +288,7 @@ export const FEATURED_DISHES = [
     name: 'Chicken Chowmein',
     price: 749,
     category: 'Noodles',
-    image: '/images/dish_chowmein.jpg',
+    image: '/images/dishes/chicken_chowmein.jpg',
     badge: 'Local Favorite'
   },
   {
@@ -284,7 +296,7 @@ export const FEATURED_DISHES = [
     name: 'Fried Momos',
     price: 550,
     category: 'Momos',
-    image: '/images/dish_momos.jpg',
+    image: '/images/dishes/fried_momos.jpg',
     badge: 'Crispy & Tender'
   },
   {
@@ -292,7 +304,7 @@ export const FEATURED_DISHES = [
     name: 'Hot & Sour Soup',
     price: 400,
     category: 'Soup',
-    image: '/images/dish_hot_pot.jpg',
+    image: '/images/dishes/hot_and_sour_soup.jpg',
     badge: 'Zesty & Classic'
   },
   {
@@ -300,7 +312,7 @@ export const FEATURED_DISHES = [
     name: 'Chicken Manchurian',
     price: 1400,
     category: 'Chicken',
-    image: '/images/hero_wok_fire.jpg',
+    image: '/images/dishes/chicken_manchurian.jpg',
     badge: 'Rich Sauté'
   },
   {
@@ -308,7 +320,7 @@ export const FEATURED_DISHES = [
     name: 'Szechwan Hot Pot',
     price: 2500,
     category: 'Hot Pot',
-    image: '/images/dish_hot_pot.jpg',
+    image: '/images/dishes/szechwan_hot_pot.jpg',
     badge: 'Masterpiece'
   }
 ];

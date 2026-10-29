@@ -52,7 +52,7 @@ export const CheckoutModal: React.FC = () => {
     orderId: string;
     total: number;
     subtotal: number;
-    deliveryFee: number;
+    deliveryFee: number | null;
     orderType: string;
     items: Array<{
       id: string;
@@ -96,10 +96,9 @@ export const CheckoutModal: React.FC = () => {
     }))
   );
 
-  // Accurate active subtotal strictly summing up (item.price * item.quantity)
+  // Accurate active food subtotal strictly summing up (item.price * item.quantity)
+  // Delivery charges are to be confirmed manually on WhatsApp based on location
   const finalSubtotal = activeCartSubtotal > 0 ? activeCartSubtotal : (validatedPricing.subtotal || 0);
-  const deliveryCharges = customerDetails.orderType === 'Delivery' ? (settings.deliveryFee || 150) : 0;
-  const finalTotal = finalSubtotal + deliveryCharges;
 
   // Pre-fill user profile if available
   useEffect(() => {
@@ -210,9 +209,8 @@ export const CheckoutModal: React.FC = () => {
         (sum, item) => sum + (Math.max(0, Number(item.price)) || 0) * Math.max(1, Number(item.quantity) || 1),
         0
       );
-      const calculatedDelivery = customerDetails.orderType === 'Delivery' ? (Number(settings.deliveryFee) || 150) : 0;
-      const calculatedTotal = calculatedSubtotal + calculatedDelivery;
 
+      // Section 3: Do not assume or add delivery fee. Stored as null until staff confirms on WhatsApp.
       const orderPayload = {
         orderId: uniqueOrderNumber,
         userId: user ? user.uid : 'guest',
@@ -222,10 +220,10 @@ export const CheckoutModal: React.FC = () => {
         deliveryAddress: resolvedAddress,
         notes: (customerDetails.notes || '').trim(),
         items: orderItems,
-        subtotal: calculatedSubtotal,
-        deliveryFee: calculatedDelivery,
-        total: calculatedTotal,
-        status: 'Pending',
+        subtotal: calculatedSubtotal, // pure food subtotal
+        deliveryFee: null, // to be confirmed by restaurant on WhatsApp
+        total: calculatedSubtotal, // initially recorded as food subtotal
+        status: 'pending_confirmation', // Section 4: awaiting staff confirmation before kitchen
         paymentMethod: 'cod',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -235,34 +233,27 @@ export const CheckoutModal: React.FC = () => {
       const cleanPayload = removeUndefined(orderPayload);
       await setDoc(orderDocRef, cleanPayload);
 
-      // Verify and fetch the saved record directly from Firestore
-      let confirmedTotal = calculatedTotal;
-      let confirmedSubtotal = calculatedSubtotal;
-      let confirmedDelivery = calculatedDelivery;
+      // Section 2: Prepare and automatically open WhatsApp with the complete prefilled order message
+      const whatsappUrl = generateWhatsAppOrderUrl(
+        customerDetails,
+        orderItems,
+        calculatedSubtotal,
+        !restaurantStatus.isOpen,
+        uniqueOrderNumber
+      );
+
       try {
-        const savedSnap = await getDoc(orderDocRef);
-        if (savedSnap.exists()) {
-          const savedData = savedSnap.data();
-          if (typeof savedData?.total === 'number' && savedData.total > 0) {
-            confirmedTotal = savedData.total;
-          }
-          if (typeof savedData?.subtotal === 'number') {
-            confirmedSubtotal = savedData.subtotal;
-          }
-          if (typeof savedData?.deliveryFee === 'number') {
-            confirmedDelivery = savedData.deliveryFee;
-          }
-        }
-      } catch (e) {
-        console.warn('Could not re-fetch saved order doc:', e);
+        window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+      } catch (openErr) {
+        console.warn('Could not auto-open WhatsApp tab:', openErr);
       }
 
       // Preserve full order details so reset cart does not clear confirmation screen
       setPlacedOrderSummary({
         orderId: uniqueOrderNumber,
-        total: confirmedTotal,
-        subtotal: confirmedSubtotal,
-        deliveryFee: confirmedDelivery,
+        total: calculatedSubtotal,
+        subtotal: calculatedSubtotal,
+        deliveryFee: null,
         orderType: customerDetails.orderType,
         items: orderItems,
         address: resolvedAddress,
@@ -303,8 +294,9 @@ export const CheckoutModal: React.FC = () => {
           orderType: placedOrderSummary.orderType as 'Delivery' | 'Pickup',
         },
         cartFormattedItems,
-        placedOrderSummary.total,
-        !restaurantStatus.isOpen
+        placedOrderSummary.subtotal,
+        !restaurantStatus.isOpen,
+        placedOrderSummary.orderId
       );
       window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
       return;
@@ -313,8 +305,9 @@ export const CheckoutModal: React.FC = () => {
     const whatsappUrl = generateWhatsAppOrderUrl(
       customerDetails,
       items,
-      finalTotal,
-      !restaurantStatus.isOpen
+      finalSubtotal,
+      !restaurantStatus.isOpen,
+      placedOrderId || undefined
     );
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
   };
@@ -535,17 +528,30 @@ export const CheckoutModal: React.FC = () => {
                   />
                 </div>
 
+                {/* Abbottabad Delivery Fee Notice */}
+                {customerDetails.orderType === 'Delivery' && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-start gap-2">
+                    <MapPin className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold block">Delivery Fee Notice:</span>
+                      <span>Delivery charges vary across Abbottabad and will be confirmed by our team on WhatsApp based on your location.</span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Bill Summary Banner */}
                 <div className="pt-2 border-t border-stone-800 text-xs text-stone-400 flex items-center justify-between">
                   <div>
-                    <span>Items Total ({items.reduce((s, i) => s + i.quantity, 0)}): </span>
+                    <span>Food Subtotal ({items.reduce((s, i) => s + i.quantity, 0)} items): </span>
                     <span className="font-mono font-bold text-stone-100">Rs. {finalSubtotal.toLocaleString()}</span>
                     {customerDetails.orderType === 'Delivery' && (
-                      <span className="text-stone-400"> + Rs. {deliveryCharges} Delivery</span>
+                      <span className="text-amber-400 block text-[11px] mt-0.5">
+                        + Delivery charges to be confirmed on WhatsApp
+                      </span>
                     )}
                   </div>
                   <div className="text-sm font-extrabold text-amber-400 font-mono">
-                    Rs. {finalTotal.toLocaleString()}
+                    Rs. {finalSubtotal.toLocaleString()}
                   </div>
                 </div>
 
@@ -624,18 +630,22 @@ export const CheckoutModal: React.FC = () => {
 
                   <div className="pt-3 border-t border-stone-800 space-y-1 text-xs">
                     <div className="flex justify-between text-stone-400">
-                      <span>Subtotal:</span>
+                      <span>Food Subtotal ({items.reduce((acc, it) => acc + it.quantity, 0)} items):</span>
                       <span className="font-mono font-bold text-stone-200">Rs. {finalSubtotal.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between text-stone-400">
                       <span>Delivery Charges:</span>
-                      <span className="font-mono text-stone-200">
-                        {customerDetails.orderType === 'Delivery' ? `Rs. ${deliveryCharges}` : 'Free (Pickup)'}
+                      <span className="font-mono text-amber-400 font-semibold">
+                        {customerDetails.orderType === 'Delivery' ? 'To be confirmed on WhatsApp' : 'Free (Pickup)'}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-sm font-extrabold text-white pt-2 border-t border-stone-800">
-                      <span className="text-amber-400 uppercase tracking-wider text-xs">Final Bill:</span>
-                      <span className="text-base font-mono text-amber-400">Rs. {finalTotal.toLocaleString()}</span>
+                      <span className="text-amber-400 uppercase tracking-wider text-xs">Final Payable:</span>
+                      <span className="text-base font-mono text-amber-400">
+                        {customerDetails.orderType === 'Delivery'
+                          ? `Rs. ${finalSubtotal.toLocaleString()} + delivery`
+                          : `Rs. ${finalSubtotal.toLocaleString()}`}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -662,17 +672,17 @@ export const CheckoutModal: React.FC = () => {
                     type="button"
                     disabled={placingOrder}
                     onClick={handlePlaceOrder}
-                    className="flex-1 py-3.5 px-6 rounded-xl bg-[#991b1b] hover:bg-[#b91c1c] active:scale-[0.98] text-white text-xs sm:text-sm font-bold uppercase tracking-wider transition shadow-xl shadow-red-950/70 flex items-center justify-center gap-2"
+                    className="flex-1 py-3.5 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white text-xs sm:text-sm font-bold uppercase tracking-wider transition shadow-xl shadow-emerald-950/70 flex items-center justify-center gap-2"
                   >
                     {placingOrder ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span>Sending to Kitchen...</span>
+                        <span>Sending to WhatsApp...</span>
                       </>
                     ) : (
                       <>
-                        <ShieldCheck className="w-4 h-4 text-amber-300" />
-                        <span>Place Order (Cash on Delivery)</span>
+                        <Send className="w-4 h-4 text-white" />
+                        <span>Send Order to WhatsApp & Place</span>
                       </>
                     )}
                   </button>
@@ -689,7 +699,7 @@ export const CheckoutModal: React.FC = () => {
 
                 <div>
                   <span className="text-xs font-bold uppercase tracking-widest text-amber-400 block mb-1">
-                    Order Received by Kitchen!
+                    Order Sent to WhatsApp!
                   </span>
                   <h3 className="font-serif-brand text-2xl font-bold text-white mb-2">
                     Thank You, {customerDetails.name}!
@@ -707,10 +717,17 @@ export const CheckoutModal: React.FC = () => {
 
                   <div className="flex justify-between items-center">
                     <span className="text-stone-400">Status:</span>
-                    <span className="font-bold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20 flex items-center gap-1.5">
+                    <span className="font-bold text-amber-300 bg-amber-500/15 px-2.5 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1.5 text-[11px]">
                       <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                      Pending Kitchen Acceptance
+                      Awaiting Restaurant Confirmation
                     </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs leading-relaxed space-y-1">
+                    <p className="font-bold text-amber-300">📲 Please press SEND in WhatsApp!</p>
+                    <p className="text-stone-300 text-[11px]">
+                      Your order has been opened in WhatsApp. Please tap <strong>Send</strong> in your chat so our staff in Mandian, Abbottabad can confirm your order and delivery fee.
+                    </p>
                   </div>
 
                   {/* Itemized Order Breakdown */}
@@ -735,15 +752,15 @@ export const CheckoutModal: React.FC = () => {
                       </div>
 
                       <div className="pt-2 border-t border-stone-800 flex justify-between text-stone-400 text-[11px]">
-                        <span>Subtotal:</span>
-                        <span className="font-mono text-stone-300">
+                        <span>Food Subtotal:</span>
+                        <span className="font-mono font-bold text-stone-200">
                           Rs. {placedOrderSummary.subtotal.toLocaleString()}
                         </span>
                       </div>
                       <div className="flex justify-between text-stone-400 text-[11px]">
-                        <span>Delivery Charge:</span>
-                        <span className="font-mono text-stone-300">
-                          {placedOrderSummary.orderType === 'Delivery' ? `Rs. ${placedOrderSummary.deliveryFee}` : 'Free (Pickup)'}
+                        <span>Delivery Charges:</span>
+                        <span className="font-mono text-amber-400 font-medium">
+                          {placedOrderSummary.orderType === 'Delivery' ? 'To be confirmed on WhatsApp' : 'Free (Pickup)'}
                         </span>
                       </div>
                     </div>
@@ -751,8 +768,10 @@ export const CheckoutModal: React.FC = () => {
 
                   <div className="flex justify-between items-center text-sm font-extrabold text-white pt-1">
                     <span className="text-amber-400 uppercase tracking-wider text-xs">Total Bill:</span>
-                    <span className="text-lg font-mono font-extrabold text-amber-400">
-                      Rs. {(placedOrderSummary ? placedOrderSummary.total : finalTotal).toLocaleString()}
+                    <span className="text-base font-mono font-extrabold text-amber-400">
+                      {placedOrderSummary?.orderType === 'Delivery'
+                        ? `Rs. ${placedOrderSummary.subtotal.toLocaleString()} + delivery`
+                        : `Rs. ${(placedOrderSummary ? placedOrderSummary.subtotal : finalSubtotal).toLocaleString()}`}
                     </span>
                   </div>
 
@@ -776,7 +795,7 @@ export const CheckoutModal: React.FC = () => {
                     className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition shadow-lg shadow-emerald-950/40"
                   >
                     <Send className="w-4 h-4" />
-                    <span>Send Order Details via WhatsApp</span>
+                    <span>Re-open WhatsApp Order Details</span>
                   </button>
 
                   {/* Close Cross Option Button */}
@@ -791,6 +810,7 @@ export const CheckoutModal: React.FC = () => {
                 </div>
               </div>
             )}
+
 
           </div>
         </div>

@@ -9,10 +9,9 @@ import { AuthProvider } from './context/AuthContext';
 import { MenuProvider } from './context/MenuContext';
 import { OrderProvider } from './context/OrderContext';
 
-// Clean Single-Page Ordering Components (Flame On & KFC Style)
+// Clean Single-Page Ordering Components (KFC & Food-Ordering Style)
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
-import { RatingBar } from './components/RatingBar';
 import { Menu } from './components/Menu';
 import { Footer } from './components/Footer';
 
@@ -29,17 +28,14 @@ import { CustomerAccount } from './pages/CustomerAccount';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { KitchenDashboard } from './pages/KitchenDashboard';
 
-// Pure digital menu card & direct ordering layout (Eliminates blog posts, articles & extra detail sections)
+// Pure digital menu card & direct ordering layout (Menu-First Homepage)
 function HomePage() {
   return (
     <>
-      {/* 1. Fast Ordering Top Hero Banner */}
+      {/* 1. Compact Brand & "Order Your Favorites" Header */}
       <Hero />
 
-      {/* 2. Restaurant Rating & Abbottabad Delivery Trust Bar */}
-      <RatingBar />
-
-      {/* 3. Central Digital Menu Card with Sticky Categories & Direct Ordering */}
+      {/* 2. Menu Categories, Search & Food Cards with Instant Add Controls */}
       <Menu />
     </>
   );
