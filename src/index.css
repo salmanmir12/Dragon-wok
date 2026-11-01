@@ -1,9 +1,25 @@
 @import "tailwindcss";
 
+:root {
+  --color-primary: #991b1b;
+  --color-secondary: #d97706;
+  --color-accent: #f59e0b;
+  --color-bg: #101216;
+  --color-card-bg: #181a20;
+  --color-text: #e5e7eb;
+  --color-heading: #ffffff;
+  --color-button: #991b1b;
+  --color-button-text: #ffffff;
+  --color-header: #0f1115;
+  --color-footer: #0c0d10;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: var(--color-bg, #101216);
+    color: var(--color-text, #e5e7eb);
   }
 }
 
@@ -23,7 +39,69 @@
 
 /* Glassmorphism for sticky nav and order floating panel */
 .glass-nav {
-  background: rgba(18, 19, 22, 0.88);
+  background: var(--color-header, rgba(18, 19, 22, 0.88));
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+/* Animations & Keyframes */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes popBadge {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.28); }
+  75% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+@keyframes subtlePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pop {
+  animation: popBadge 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.animate-subtle-pulse {
+  animation: subtlePulse 2s ease-in-out infinite;
+}
+
+/* Dynamic theme background & surface utility helpers */
+.theme-surface-card {
+  background-color: var(--color-card-bg, #181a20);
+}
+
+.theme-button-primary {
+  background-color: var(--color-button, #991b1b);
+  color: var(--color-button-text, #ffffff);
+}
+
+.theme-button-primary:hover {
+  filter: brightness(1.12);
+}
+
+/* Reduced Motion for Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

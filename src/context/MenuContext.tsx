@@ -154,10 +154,10 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateMenuItem = async (id: string, updates: Partial<DynamicMenuItem>) => {
     const docRef = doc(db, 'menu_items', id);
     try {
-      await updateDoc(docRef, {
+      await setDoc(docRef, {
         ...updates,
         updatedAt: new Date().toISOString(),
-      });
+      }, { merge: true });
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `menu_items/${id}`);
     }

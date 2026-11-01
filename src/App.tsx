@@ -6,6 +6,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { MenuProvider } from './context/MenuContext';
 import { OrderProvider } from './context/OrderContext';
 
@@ -45,9 +46,13 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <MenuProvider>
-          <OrderProvider>
-            <div className="min-h-screen bg-[#101216] text-[#e5e7eb] flex flex-col font-sans selection:bg-[#991b1b] selection:text-white">
+        <ThemeProvider>
+          <MenuProvider>
+            <OrderProvider>
+              <div
+                className="min-h-screen flex flex-col font-sans selection:bg-[#991b1b] selection:text-white transition-colors duration-300"
+                style={{ backgroundColor: 'var(--color-bg, #101216)', color: 'var(--color-text, #e5e7eb)' }}
+              >
               {/* Sticky Navigation with Business Hours, Cart Counter & Quick Links */}
               <Navbar />
 
@@ -87,7 +92,8 @@ export default function App() {
             </div>
           </OrderProvider>
         </MenuProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  );
+      </ThemeProvider>
+    </AuthProvider>
+  </BrowserRouter>
+);
 }

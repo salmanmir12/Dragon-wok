@@ -24,10 +24,11 @@ export const DealCard: React.FC<DealCardProps> = ({ deal }) => {
 
   return (
     <div
-      className={`relative rounded-2xl border flex flex-col justify-between overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-black/70 hover:-translate-y-1 ${
+      style={{ backgroundColor: 'var(--color-card-bg, #181a20)' }}
+      className={`relative rounded-2xl border flex flex-col justify-between overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-black/70 hover:-translate-y-1 animate-fadeInUp ${
         deal.popular
-          ? 'bg-gradient-to-b from-[#201919] to-[#15171c] border-amber-500/60 shadow-xl shadow-red-950/20'
-          : 'bg-[#181a20] border-stone-800 hover:border-stone-700'
+          ? 'border-amber-500/60 shadow-xl shadow-red-950/20'
+          : 'border-stone-800 hover:border-stone-700'
       }`}
     >
       <div>
@@ -129,7 +130,8 @@ export const DealCard: React.FC<DealCardProps> = ({ deal }) => {
             <button
               type="button"
               onClick={handleAddToCart}
-              className="flex items-center gap-1.5 py-2.5 px-4 text-xs font-bold uppercase tracking-wider text-white bg-[#991b1b] hover:bg-[#b91c1c] active:scale-95 rounded-xl transition-all shadow-md shadow-red-950/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 whitespace-nowrap"
+              style={{ backgroundColor: 'var(--color-button, #991b1b)', color: 'var(--color-button-text, #ffffff)' }}
+              className="flex items-center gap-1.5 py-2.5 px-4 text-xs font-bold uppercase tracking-wider active:scale-95 hover:brightness-110 rounded-xl transition-all shadow-md shadow-red-950/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 whitespace-nowrap"
               title={`Add ${deal.title} to Cart`}
             >
               <ShoppingBag className="w-3.5 h-3.5 text-amber-400" />

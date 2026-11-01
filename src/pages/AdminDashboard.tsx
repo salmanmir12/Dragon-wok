@@ -28,15 +28,26 @@ import {
   Calendar,
   Eye,
   Check,
+  Palette,
+  Upload,
+  Image as ImageIcon,
+  RotateCcw,
+  Camera,
+  CheckCircle2,
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
 import { collection, onSnapshot, doc, updateDoc, deleteDoc, setDoc, query, getDocs } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useMenu, DynamicMenuItem } from '../context/MenuContext';
+import { useTheme } from '../context/ThemeContext';
+import { uploadDishImage, deleteDishImage, validateImageFile } from '../utils/imageUpload';
+import { getDishPhoto } from '../components/MenuCard';
 import { StoredOrder } from './CustomerAccount';
 import { Link } from 'react-router-dom';
 
-type AdminTab = 'overview' | 'orders' | 'menu' | 'customers' | 'reports' | 'settings';
+type AdminTab = 'overview' | 'orders' | 'menu' | 'appearance' | 'customers' | 'reports' | 'settings';
 
 export const AdminDashboard: React.FC = () => {
   const { user, isAdmin, logout, setAuthModalOpen } = useAuth();
@@ -79,6 +90,28 @@ export const AdminDashboard: React.FC = () => {
     available: true,
     badge: '',
   });
+
+  // Food Image Upload state for Menu Management
+  const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
+  const [itemUploadProgress, setItemUploadProgress] = useState<Record<string, number>>({});
+  const [itemUploadNotice, setItemUploadNotice] = useState<string | null>(null);
+
+  // Modal Image state
+  const [modalImageFile, setModalImageFile] = useState<File | null>(null);
+  const [modalImagePreview, setModalImagePreview] = useState<string | null>(null);
+  const [modalUploading, setModalUploading] = useState(false);
+  const [modalUploadProgress, setModalUploadProgress] = useState(0);
+  const [modalUploadError, setModalUploadError] = useState<string | null>(null);
+
+  // Theme settings state
+  const { theme, updateTheme, resetToDefault } = useTheme();
+  const [themeForm, setThemeForm] = useState(theme);
+  const [savingTheme, setSavingTheme] = useState(false);
+  const [themeNotice, setThemeNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    setThemeForm(theme);
+  }, [theme]);
 
   // Settings form state
   const [announcement, setAnnouncement] = useState('');
@@ -289,10 +322,90 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  // Direct Image Upload Handler for Menu Cards
+  const handleDirectImageUpload = async (item: DynamicMenuItem, file: File) => {
+    const val = validateImageFile(file);
+    if (!val.valid) {
+      alert(val.error);
+      return;
+    }
+
+    setUploadingItemId(item.id);
+    setItemUploadProgress((prev) => ({ ...prev, [item.id]: 0 }));
+    setItemUploadNotice(null);
+
+    try {
+      const downloadUrl = await uploadDishImage(file, item.id, (progress) => {
+        setItemUploadProgress((prev) => ({ ...prev, [item.id]: progress }));
+      });
+
+      // Update in Firestore
+      await updateMenuItem(item.id, {
+        image: downloadUrl,
+      });
+
+      setItemUploadNotice(`Photo for "${item.name}" uploaded successfully!`);
+      setTimeout(() => setItemUploadNotice(null), 4000);
+    } catch (err: any) {
+      alert(`Image upload failed: ${err.message}`);
+    } finally {
+      setUploadingItemId(null);
+    }
+  };
+
+  const handleRemoveItemImage = async (item: DynamicMenuItem) => {
+    if (!window.confirm(`Remove custom image for "${item.name}"? It will revert to the default dish photo.`)) {
+      return;
+    }
+
+    try {
+      if (item.image && item.image.includes('firebasestorage.googleapis.com')) {
+        await deleteDishImage(item.image);
+      }
+      await updateMenuItem(item.id, {
+        image: '',
+      });
+      setItemUploadNotice(`Custom photo removed for "${item.name}". Reverted to default.`);
+      setTimeout(() => setItemUploadNotice(null), 4000);
+    } catch (err: any) {
+      alert(`Failed to remove image: ${err.message}`);
+    }
+  };
+
+  // Modal Image File Selection
+  const handleModalFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const val = validateImageFile(file);
+    if (!val.valid) {
+      setModalUploadError(val.error || 'Invalid file format or file too large');
+      return;
+    }
+
+    setModalUploadError(null);
+    setModalImageFile(file);
+    const objectUrl = URL.createObjectURL(file);
+    setModalImagePreview(objectUrl);
+  };
+
   // Menu Form Handlers
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      let finalImageUrl = itemFormData.image;
+
+      // If user selected a new file in modal, upload it to Firebase Storage
+      if (modalImageFile) {
+        setModalUploading(true);
+        setModalUploadProgress(5);
+        const targetId = editingItem ? editingItem.id : itemFormData.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+        finalImageUrl = await uploadDishImage(modalImageFile, targetId, (p) => {
+          setModalUploadProgress(p);
+        });
+        setModalUploading(false);
+      }
+
       if (editingItem) {
         await updateMenuItem(editingItem.id, {
           name: itemFormData.name,
@@ -300,7 +413,7 @@ export const AdminDashboard: React.FC = () => {
           price: Number(itemFormData.price),
           familyPrice: itemFormData.familyPrice ? Number(itemFormData.familyPrice) : undefined,
           description: itemFormData.description,
-          image: itemFormData.image,
+          image: finalImageUrl,
           badge: itemFormData.badge || undefined,
           available: itemFormData.available,
         });
@@ -311,15 +424,21 @@ export const AdminDashboard: React.FC = () => {
           price: Number(itemFormData.price),
           familyPrice: itemFormData.familyPrice ? Number(itemFormData.familyPrice) : undefined,
           description: itemFormData.description,
-          image: itemFormData.image,
+          image: finalImageUrl,
           badge: itemFormData.badge || undefined,
           available: itemFormData.available,
         });
       }
       setIsNewItemModalOpen(false);
       setEditingItem(null);
+      setModalImageFile(null);
+      setModalImagePreview(null);
+      setModalUploadProgress(0);
+      setModalUploadError(null);
     } catch (err: any) {
       alert(`Error saving menu item: ${err.message}`);
+    } finally {
+      setModalUploading(false);
     }
   };
 
@@ -457,7 +576,8 @@ export const AdminDashboard: React.FC = () => {
           {[
             { id: 'overview', label: 'Overview & Metrics', icon: BarChart3 },
             { id: 'orders', label: `Live Orders (${orders.length})`, icon: ShoppingBag },
-            { id: 'menu', label: `Menu Catalog (${menuItems.length})`, icon: UtensilsCrossed },
+            { id: 'menu', label: `Menu & Photos (${menuItems.length})`, icon: UtensilsCrossed },
+            { id: 'appearance', label: 'Website Appearance / Theme', icon: Palette },
             { id: 'customers', label: `Customers (${customers.length})`, icon: Users },
             { id: 'reports', label: 'Sales Reports', icon: TrendingUp },
             { id: 'settings', label: 'Restaurant Settings', icon: Settings },
@@ -1130,10 +1250,13 @@ export const AdminDashboard: React.FC = () => {
                       price: 0,
                       familyPrice: 0,
                       description: '',
-                      image: '/images/dish_chowmein.jpg',
+                      image: '',
                       available: true,
                       badge: '',
                     });
+                    setModalImageFile(null);
+                    setModalImagePreview(null);
+                    setModalUploadError(null);
                     setIsNewItemModalOpen(true);
                   }}
                   className="px-4 py-2 bg-[#991b1b] hover:bg-[#b91c1c] text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-md transition"
@@ -1144,112 +1267,291 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Menu Items Grid */}
+            {/* Menu Upload Notification */}
+            {itemUploadNotice && (
+              <div className="p-3 bg-emerald-950/80 border border-emerald-500/80 text-emerald-300 rounded-xl text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>{itemUploadNotice}</span>
+              </div>
+            )}
+
+            {/* Menu Items Grid with Real-Time Photos and Upload Controls */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredMenuItems.map((item) => (
-                <div
-                  key={item.id}
-                  className={`bg-[#181a20] rounded-xl border ${
-                    item.available ? 'border-stone-800' : 'border-stone-800/40 opacity-60'
-                  } p-5 flex flex-col justify-between`}
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-stone-900 border border-stone-800 px-2 py-0.5 rounded">
-                        {item.category}
-                      </span>
+              {filteredMenuItems.map((item) => {
+                const isCustomPhoto = Boolean(item.image && (item.image.includes('firebasestorage.googleapis.com') || item.image.startsWith('http')));
+                const photoSrc = getDishPhoto(item.name, item.category, item.image, item.id);
+                const isUploading = uploadingItemId === item.id;
+                const progress = itemUploadProgress[item.id] || 0;
 
-                      <button
-                        onClick={() => toggleAvailability(item.id, item.available)}
-                        className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded transition ${
-                          item.available
-                            ? 'bg-emerald-950/60 border border-emerald-800 text-emerald-300'
-                            : 'bg-rose-950/60 border border-rose-800 text-rose-300'
-                        }`}
-                      >
-                        {item.available ? 'In Stock' : 'Out of Stock'}
-                      </button>
-                    </div>
-
-                    <h4 className="font-bold text-white text-base mb-1">{item.name}</h4>
-                    {item.description && (
-                      <p className="text-xs text-stone-400 line-clamp-2 mb-3">{item.description}</p>
-                    )}
-                  </div>
-
-                  <div className="pt-4 border-t border-stone-800 flex items-center justify-between">
+                return (
+                  <div
+                    key={item.id}
+                    className={`bg-[#181a20] rounded-xl border ${
+                      item.available ? 'border-stone-800' : 'border-stone-800/40 opacity-60'
+                    } p-4 sm:p-5 flex flex-col justify-between overflow-hidden shadow-lg hover:border-stone-700 transition`}
+                  >
                     <div>
-                      <div className="text-sm font-bold text-amber-400 font-serif-brand">
-                        Rs. {item.price.toLocaleString()}
-                      </div>
-                      {item.familyPrice && (
-                        <div className="text-[10px] text-stone-400">
-                          Family: Rs. {item.familyPrice.toLocaleString()}
+                      {/* Visual Photo Header on Card */}
+                      <div className="relative aspect-[16/9] rounded-lg overflow-hidden bg-stone-900 mb-3 border border-stone-800/80 group">
+                        <img
+                          src={photoSrc}
+                          alt={item.name}
+                          loading="lazy"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            if (!target.src.includes('chicken_chowmein.jpg')) {
+                              target.src = '/images/dishes/chicken_chowmein.jpg';
+                            }
+                          }}
+                          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                        />
+
+                        {/* Photo Status Pill */}
+                        <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                          {isCustomPhoto ? (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-emerald-900/90 text-emerald-200 border border-emerald-700/80 shadow">
+                              Custom Photo
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-stone-900/90 text-stone-400 border border-stone-700/80 shadow">
+                              System Photo
+                            </span>
+                          )}
                         </div>
+
+                        {/* Upload overlay / progress if uploading */}
+                        {isUploading ? (
+                          <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center p-3 text-center">
+                            <Loader2 className="w-6 h-6 text-amber-400 animate-spin mb-1.5" />
+                            <span className="text-[11px] font-bold text-white">Uploading {progress}%</span>
+                            <div className="w-24 h-1.5 bg-stone-800 rounded-full mt-2 overflow-hidden">
+                              <div
+                                className="h-full bg-amber-400 transition-all duration-200"
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            <label
+                              className="cursor-pointer px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 text-[10px] font-bold uppercase flex items-center gap-1 shadow-lg transition"
+                              title="Change or upload new photo"
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                              <span>Upload</span>
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleDirectImageUpload(item, file);
+                                  e.target.value = '';
+                                }}
+                              />
+                            </label>
+                            {isCustomPhoto && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveItemImage(item)}
+                                className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold uppercase flex items-center gap-1 shadow-lg transition"
+                                title="Remove custom photo and revert to default"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Reset</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-stone-900 border border-stone-800 px-2 py-0.5 rounded">
+                          {item.category}
+                        </span>
+
+                        <button
+                          onClick={() => toggleAvailability(item.id, item.available)}
+                          className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded transition ${
+                            item.available
+                              ? 'bg-emerald-950/60 border border-emerald-800 text-emerald-300'
+                              : 'bg-rose-950/60 border border-rose-800 text-rose-300'
+                          }`}
+                        >
+                          {item.available ? 'In Stock' : 'Out of Stock'}
+                        </button>
+                      </div>
+
+                      <h4 className="font-bold text-white text-base mb-1">{item.name}</h4>
+                      {item.description && (
+                        <p className="text-xs text-stone-400 line-clamp-2 mb-3">{item.description}</p>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setEditingItem(item);
-                          setItemFormData({
-                            name: item.name,
-                            category: item.category,
-                            price: item.price,
-                            familyPrice: item.familyPrice || 0,
-                            description: item.description || '',
-                            image: item.image || '/images/dish_chowmein.jpg',
-                            available: item.available,
-                            badge: item.badge || '',
-                          });
-                          setIsNewItemModalOpen(true);
-                        }}
-                        className="p-1.5 rounded bg-stone-900 hover:bg-stone-800 text-stone-300 hover:text-white"
-                        title="Edit Dish"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
+                    <div className="pt-4 border-t border-stone-800 flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-bold text-amber-400 font-serif-brand">
+                          Rs. {item.price.toLocaleString()}
+                        </div>
+                        {item.familyPrice && (
+                          <div className="text-[10px] text-stone-400">
+                            Family: Rs. {item.familyPrice.toLocaleString()}
+                          </div>
+                        )}
+                      </div>
 
-                      <button
-                        onClick={async () => {
-                          if (window.confirm(`Delete "${item.name}" from the menu?`)) {
-                            await deleteMenuItem(item.id);
-                          }
-                        }}
-                        className="p-1.5 rounded bg-stone-900 hover:bg-rose-950 text-stone-300 hover:text-rose-400"
-                        title="Delete Dish"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingItem(item);
+                            setItemFormData({
+                              name: item.name,
+                              category: item.category,
+                              price: item.price,
+                              familyPrice: item.familyPrice || 0,
+                              description: item.description || '',
+                              image: item.image || '',
+                              available: item.available,
+                              badge: item.badge || '',
+                            });
+                            setModalImageFile(null);
+                            setModalImagePreview(item.image || getDishPhoto(item.name, item.category, item.image, item.id));
+                            setModalUploadError(null);
+                            setIsNewItemModalOpen(true);
+                          }}
+                          className="p-1.5 rounded bg-stone-900 hover:bg-stone-800 text-stone-300 hover:text-white"
+                          title="Edit Dish & Image"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          onClick={async () => {
+                            if (window.confirm(`Delete "${item.name}" from the menu?`)) {
+                              await deleteMenuItem(item.id);
+                            }
+                          }}
+                          className="p-1.5 rounded bg-stone-900 hover:bg-rose-950 text-stone-300 hover:text-rose-400"
+                          title="Delete Dish"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            {/* Add / Edit Dish Modal */}
+            {/* Add / Edit Dish Modal with Complete Image Management */}
             {isNewItemModalOpen && (
               <div
                 className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn"
-                onClick={() => setIsNewItemModalOpen(false)}
+                onClick={() => !modalUploading && setIsNewItemModalOpen(false)}
               >
                 <div
-                  className="relative max-w-md w-full bg-[#181a20] rounded-2xl border border-stone-800 p-6 text-left shadow-2xl"
+                  className="relative max-w-lg w-full bg-[#181a20] rounded-2xl border border-stone-800 p-6 text-left shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button
+                    disabled={modalUploading}
                     onClick={() => setIsNewItemModalOpen(false)}
-                    className="absolute top-4 right-4 p-1.5 text-stone-400 hover:text-white"
+                    className="absolute top-4 right-4 p-1.5 text-stone-400 hover:text-white disabled:opacity-30"
                   >
                     <X className="w-5 h-5" />
                   </button>
 
                   <h3 className="font-serif-brand text-lg font-bold text-white mb-4">
-                    {editingItem ? 'Edit Menu Dish' : 'Add New Menu Dish'}
+                    {editingItem ? 'Edit Menu Dish & Image' : 'Add New Menu Dish & Image'}
                   </h3>
 
-                  <form onSubmit={handleSaveItem} className="space-y-3 text-xs">
+                  <form onSubmit={handleSaveItem} className="space-y-4 text-xs">
+                    {/* Food Image Upload Management Section */}
+                    <div className="p-3.5 bg-stone-900/90 rounded-xl border border-stone-800 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-stone-300 font-bold text-xs flex items-center gap-1.5">
+                          <ImageIcon className="w-4 h-4 text-amber-400" />
+                          <span>Food Photograph / Image</span>
+                        </label>
+                        {modalImagePreview && (
+                          <span className="text-[10px] text-amber-400 font-mono">
+                            {modalImageFile ? 'New file selected' : 'Current photo'}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Image Preview Window */}
+                      <div className="relative aspect-[16/9] rounded-lg overflow-hidden bg-stone-950 border border-stone-800 flex items-center justify-center">
+                        {modalImagePreview ? (
+                          <img
+                            src={modalImagePreview}
+                            alt="Food preview"
+                            className="w-full h-full object-cover object-center"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center text-stone-500 py-6">
+                            <ImageIcon className="w-8 h-8 mb-1 text-stone-600" />
+                            <span className="text-[11px]">No image uploaded yet</span>
+                          </div>
+                        )}
+
+                        {/* Uploading Status Overlay */}
+                        {modalUploading && (
+                          <div className="absolute inset-0 bg-black/85 backdrop-blur-sm flex flex-col items-center justify-center p-4">
+                            <Loader2 className="w-7 h-7 text-amber-400 animate-spin mb-2" />
+                            <span className="text-xs font-bold text-white">
+                              Saving & Uploading to Firebase Storage... {modalUploadProgress}%
+                            </span>
+                            <div className="w-full max-w-xs h-1.5 bg-stone-800 rounded-full mt-2 overflow-hidden">
+                              <div
+                                className="h-full bg-amber-400 transition-all duration-150"
+                                style={{ width: `${modalUploadProgress}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {modalUploadError && (
+                        <div className="text-[11px] text-rose-400 bg-rose-950/60 p-2 rounded border border-rose-800/80">
+                          {modalUploadError}
+                        </div>
+                      )}
+
+                      {/* Upload & Remove Controls */}
+                      <div className="flex items-center gap-2 pt-1">
+                        <label className="flex-1 cursor-pointer py-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold text-center flex items-center justify-center gap-1.5 shadow transition">
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>{modalImagePreview ? 'Change / Replace Image' : 'Upload Food Image'}</span>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            className="hidden"
+                            onChange={handleModalFileSelect}
+                          />
+                        </label>
+
+                        {modalImagePreview && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalImageFile(null);
+                              setModalImagePreview(null);
+                              setItemFormData((prev) => ({ ...prev, image: '' }));
+                            }}
+                            className="py-2 px-3 rounded-lg bg-stone-800 hover:bg-rose-950 hover:text-rose-300 text-stone-300 text-xs font-semibold flex items-center gap-1 transition"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Remove</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <p className="text-[10px] text-stone-500">
+                        Supports JPG, PNG, WEBP (Max 5 MB). Uploads securely and permanently to Firebase Storage.
+                      </p>
+                    </div>
+
                     <div>
                       <label className="block text-stone-300 font-medium mb-1">Dish Name</label>
                       <input
@@ -1342,14 +1644,277 @@ export const AdminDashboard: React.FC = () => {
 
                     <button
                       type="submit"
-                      className="w-full py-2.5 bg-[#991b1b] hover:bg-[#b91c1c] text-white rounded-lg text-xs font-semibold tracking-wider uppercase transition shadow-md mt-4"
+                      disabled={modalUploading}
+                      className="w-full py-2.5 bg-[#991b1b] hover:bg-[#b91c1c] text-white rounded-lg text-xs font-semibold tracking-wider uppercase transition shadow-md mt-4 disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                      Save Menu Item
+                      {modalUploading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Uploading & Saving Dish...</span>
+                        </>
+                      ) : (
+                        <span>Save Menu Item</span>
+                      )}
                     </button>
                   </form>
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* TAB: WEBSITE APPEARANCE / THEME SETTINGS */}
+        {activeTab === 'appearance' && (
+          <div className="space-y-8">
+            {/* Top Overview Header */}
+            <div className="bg-[#181a20] rounded-2xl border border-stone-800 p-6 sm:p-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-stone-800">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Palette className="w-5 h-5 text-amber-400" />
+                    <h2 className="font-serif-brand text-xl sm:text-2xl font-bold text-white">
+                      Website Appearance / Theme Settings
+                    </h2>
+                  </div>
+                  <p className="text-xs text-stone-400 max-w-2xl">
+                    Customize your brand colors, background, card surfaces, and buttons. Changes save permanently in Firestore and automatically update the live ordering website for all customers.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (window.confirm('Reset all website colors back to official Dragon Wok defaults?')) {
+                        await resetToDefault();
+                        setThemeNotice('Colors reset to official Dragon Wok defaults!');
+                        setTimeout(() => setThemeNotice(null), 4000);
+                      }
+                    }}
+                    className="px-4 py-2.5 bg-stone-900 hover:bg-stone-800 border border-stone-700 text-stone-300 rounded-xl text-xs font-semibold flex items-center gap-2 transition"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Reset to Default</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={savingTheme}
+                    onClick={async () => {
+                      setSavingTheme(true);
+                      setThemeNotice(null);
+                      try {
+                        await updateTheme(themeForm);
+                        setThemeNotice('Theme colors saved permanently and applied across the entire website!');
+                        setTimeout(() => setThemeNotice(null), 5000);
+                      } catch (err: any) {
+                        alert(`Failed to save theme: ${err.message}`);
+                      } finally {
+                        setSavingTheme(false);
+                      }
+                    }}
+                    className="px-5 py-2.5 bg-[#991b1b] hover:bg-[#b91c1c] text-white rounded-xl text-xs font-bold uppercase tracking-wider transition shadow-lg shadow-red-950/60 flex items-center gap-2"
+                  >
+                    {savingTheme ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Save Theme Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {themeNotice && (
+                <div className="mt-4 p-3.5 bg-emerald-950/80 border border-emerald-500/80 text-emerald-300 rounded-xl text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{themeNotice}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Grid: Color Pickers (Left) & Real-time Live Preview (Right) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* Color Configuration Controls (7 cols on lg) */}
+              <div className="lg:col-span-7 bg-[#181a20] rounded-2xl border border-stone-800 p-6 space-y-6">
+                <h3 className="font-bold text-white text-sm flex items-center gap-2 border-b border-stone-800 pb-3">
+                  <Palette className="w-4 h-4 text-amber-400" />
+                  <span>Color Controls (Color Picker & HEX Input)</span>
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    { key: 'primaryColor', label: 'Primary Brand Color', desc: 'Main brand elements & badges' },
+                    { key: 'secondaryColor', label: 'Secondary Color', desc: 'Wok accent and highlights' },
+                    { key: 'accentColor', label: 'Accent Color', desc: 'Price tags, stars & special alerts' },
+                    { key: 'bgColor', label: 'Website Background Color', desc: 'Main customer page backdrop' },
+                    { key: 'cardBgColor', label: 'Menu Card Background Color', desc: 'Food item surface cards' },
+                    { key: 'textColor', label: 'Text Color', desc: 'Body paragraphs & ingredients' },
+                    { key: 'headingColor', label: 'Heading Color', desc: 'Dish titles & main section headers' },
+                    { key: 'buttonColor', label: 'Button Color', desc: 'Add to Cart & Checkout buttons' },
+                    { key: 'buttonTextColor', label: 'Button Text Color', desc: 'Text inside primary buttons' },
+                    { key: 'headerColor', label: 'Header & Navigation Color', desc: 'Sticky top navbar background' },
+                    { key: 'footerColor', label: 'Footer Color', desc: 'Customer website footer bar' },
+                  ].map((field) => {
+                    const colorValue = (themeForm as any)[field.key] || '#000000';
+                    return (
+                      <div
+                        key={field.key}
+                        className="p-3.5 rounded-xl bg-stone-900 border border-stone-800/80 hover:border-stone-700 transition"
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-xs font-bold text-white block">
+                            {field.label}
+                          </label>
+                          <span className="text-[10px] font-mono text-stone-400 font-bold uppercase">
+                            {colorValue}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-stone-400 mb-2.5">{field.desc}</p>
+
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={colorValue}
+                            onChange={(e) => {
+                              const updated = { ...themeForm, [field.key]: e.target.value };
+                              setThemeForm(updated);
+                            }}
+                            className="w-10 h-9 p-0.5 rounded bg-stone-800 border border-stone-700 cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={colorValue}
+                            onChange={(e) => {
+                              const updated = { ...themeForm, [field.key]: e.target.value };
+                              setThemeForm(updated);
+                            }}
+                            className="flex-1 px-3 py-1.5 bg-stone-950 border border-stone-800 rounded text-xs text-white font-mono uppercase focus:outline-none focus:border-amber-500"
+                            placeholder="#HEX"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Real-time Interactive Live Preview Box (5 cols on lg) */}
+              <div className="lg:col-span-5 sticky top-24 space-y-4">
+                <div className="bg-[#181a20] rounded-2xl border border-stone-800 p-6 shadow-2xl">
+                  <div className="flex items-center justify-between mb-4 border-b border-stone-800 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Eye className="w-4 h-4 text-amber-400" />
+                      <h3 className="font-bold text-white text-sm">Live Preview</h3>
+                    </div>
+                    <span className="text-[10px] text-stone-400 bg-stone-900 px-2 py-0.5 rounded border border-stone-800">
+                      Real-Time Simulation
+                    </span>
+                  </div>
+
+                  {/* Simulated Customer Device Frame */}
+                  <div
+                    className="rounded-xl border border-stone-700 overflow-hidden shadow-2xl transition-colors duration-300"
+                    style={{ backgroundColor: themeForm.bgColor }}
+                  >
+                    {/* Simulated Header */}
+                    <div
+                      className="px-4 py-3 flex items-center justify-between border-b border-white/10 transition-colors duration-300"
+                      style={{ backgroundColor: themeForm.headerColor }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <img
+                          src="/images/dragon_wok_logo.jpg"
+                          alt="Logo"
+                          className="w-6 h-6 rounded-full object-cover border border-white/20"
+                        />
+                        <span className="font-serif-brand text-xs font-bold tracking-wider" style={{ color: themeForm.headingColor }}>
+                          DRAGON WOK
+                        </span>
+                      </div>
+                      <span
+                        className="px-2.5 py-1 rounded text-[10px] font-bold uppercase transition-colors"
+                        style={{ backgroundColor: themeForm.buttonColor, color: themeForm.buttonTextColor }}
+                      >
+                        Cart (2)
+                      </span>
+                    </div>
+
+                    {/* Simulated Main Content */}
+                    <div className="p-4 space-y-3">
+                      <div>
+                        <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: themeForm.secondaryColor }}>
+                          Popular Chinese Wok
+                        </span>
+                        <h4 className="text-sm font-bold leading-tight" style={{ color: themeForm.headingColor }}>
+                          Dragon Wok Specials
+                        </h4>
+                        <p className="text-[11px] leading-relaxed mt-0.5" style={{ color: themeForm.textColor }}>
+                          Wok-tossed fresh dishes with authentic Chinese seasonings.
+                        </p>
+                      </div>
+
+                      {/* Simulated Food Menu Card */}
+                      <div
+                        className="rounded-lg border border-white/10 overflow-hidden shadow-md transition-colors duration-300"
+                        style={{ backgroundColor: themeForm.cardBgColor }}
+                      >
+                        <div className="aspect-[16/9] bg-stone-800 overflow-hidden relative">
+                          <img
+                            src="/images/dishes/chicken_chowmein.jpg"
+                            alt="Sample Dish"
+                            className="w-full h-full object-cover"
+                          />
+                          <span
+                            className="absolute top-2 left-2 text-[9px] font-bold px-2 py-0.5 rounded uppercase"
+                            style={{ backgroundColor: themeForm.primaryColor, color: '#ffffff' }}
+                          >
+                            Signature
+                          </span>
+                        </div>
+                        <div className="p-3">
+                          <h5 className="font-bold text-xs mb-1" style={{ color: themeForm.headingColor }}>
+                            Special Chicken Chowmein
+                          </h5>
+                          <p className="text-[10px] line-clamp-1 mb-2" style={{ color: themeForm.textColor }}>
+                            Hand-pulled noodles with tender poultry and garden vegetables.
+                          </p>
+
+                          <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                            <div>
+                              <span className="text-[9px] block text-stone-400">Price</span>
+                              <span className="text-xs font-extrabold" style={{ color: themeForm.accentColor }}>
+                                Rs. 849
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              className="px-3 py-1.5 rounded text-[10px] font-bold uppercase shadow transition"
+                              style={{ backgroundColor: themeForm.buttonColor, color: themeForm.buttonTextColor }}
+                            >
+                              Add to Cart
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Simulated Footer */}
+                    <div
+                      className="px-4 py-2.5 text-[9px] text-center border-t border-white/10 transition-colors duration-300"
+                      style={{ backgroundColor: themeForm.footerColor, color: themeForm.textColor }}
+                    >
+                      Dragon Wok Abbottabad • Mandian Jadoon Plaza Phase 1
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

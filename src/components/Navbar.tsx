@@ -25,7 +25,8 @@ export const Navbar: React.FC = () => {
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-40 bg-[#121316]/95 backdrop-blur-md border-b border-stone-800/90 py-2.5 sm:py-3 shadow-xl transition-all duration-200"
+      style={{ backgroundColor: 'var(--color-header, #0f1115)' }}
+      className="fixed top-0 left-0 right-0 z-40 backdrop-blur-md border-b border-stone-800/90 py-2.5 sm:py-3 shadow-xl transition-all duration-200"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
@@ -150,12 +151,16 @@ export const Navbar: React.FC = () => {
             {/* Shopping Cart Button */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="flex items-center gap-2 bg-[#991b1b] hover:bg-[#b91c1c] text-white px-4 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d97706] whitespace-nowrap"
+              style={{ backgroundColor: 'var(--color-button, #991b1b)', color: 'var(--color-button-text, #ffffff)' }}
+              className="flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d97706] whitespace-nowrap active:scale-95 hover:brightness-110"
             >
               <ShoppingBag className="w-4 h-4 text-amber-300" />
               <span>Cart</span>
               {totalCount > 0 && (
-                <span className="ml-1 bg-amber-400 text-stone-950 text-[11px] font-mono font-bold px-2 py-0.5 rounded-full">
+                <span
+                  key={totalCount}
+                  className="ml-1 bg-amber-400 text-stone-950 text-[11px] font-mono font-bold px-2 py-0.5 rounded-full animate-pop"
+                >
                   {totalCount} • Rs. {totalPrice.toLocaleString()}
                 </span>
               )}

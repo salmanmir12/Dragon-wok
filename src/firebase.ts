@@ -1,10 +1,14 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { initializeFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+
+// Initialize Firebase Storage
+export const storage = getStorage(app);
 
 // Initialize Firestore with specific database ID and ignoreUndefinedProperties (prevents undefined field errors)
 export const db = initializeFirestore(

@@ -193,11 +193,12 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
 
   return (
     <div
-      className={`relative bg-[#181a20] rounded-2xl border ${
+      style={{ backgroundColor: 'var(--color-card-bg, #181a20)' }}
+      className={`relative rounded-2xl border ${
         item.isSignature
           ? 'border-amber-500/50 shadow-lg shadow-amber-950/20'
           : 'border-stone-800 hover:border-stone-700'
-      } overflow-hidden flex flex-col justify-between transition-all duration-300 hover:shadow-2xl hover:shadow-black/70 hover:-translate-y-1 group`}
+      } overflow-hidden flex flex-col justify-between transition-all duration-300 hover:shadow-2xl hover:shadow-black/70 hover:-translate-y-1 group animate-fadeInUp`}
     >
       <div>
         {/* Modern Food Image Banner */}
@@ -318,7 +319,8 @@ export const MenuCard: React.FC<MenuCardProps> = ({ item }) => {
               <button
                 type="button"
                 onClick={handleAddToCart}
-                className="flex items-center gap-1.5 py-2.5 px-4 text-xs font-bold uppercase tracking-wider text-white bg-[#991b1b] hover:bg-[#b91c1c] active:scale-95 rounded-xl transition-all shadow-md shadow-red-950/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 whitespace-nowrap"
+                style={{ backgroundColor: 'var(--color-button, #991b1b)', color: 'var(--color-button-text, #ffffff)' }}
+                className="flex items-center gap-1.5 py-2.5 px-4 text-xs font-bold uppercase tracking-wider active:scale-95 hover:brightness-110 rounded-xl transition-all shadow-md shadow-red-950/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 whitespace-nowrap"
                 title={`Add ${item.name} to Cart`}
               >
                 <ShoppingBag className="w-3.5 h-3.5 text-amber-400" />

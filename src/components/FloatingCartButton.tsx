@@ -17,7 +17,8 @@ export const FloatingCartButton: React.FC = () => {
       >
         <button
           onClick={() => setIsCartOpen(true)}
-          className="group flex items-center gap-3 bg-[#991b1b] hover:bg-[#b91c1c] active:scale-95 text-white pl-4 pr-5 py-3.5 rounded-full shadow-2xl shadow-red-950/70 border border-red-500/40 hover:border-amber-400/60 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+          style={{ backgroundColor: 'var(--color-button, #991b1b)', color: 'var(--color-button-text, #ffffff)' }}
+          className="group flex items-center gap-3 active:scale-95 pl-4 pr-5 py-3.5 rounded-full shadow-2xl shadow-red-950/70 border border-red-500/40 hover:border-amber-400/60 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
           title="Open Dragon Wok Cart"
           aria-label={`Open Dragon Wok Cart, ${totalCount} items, subtotal Rs. ${totalPrice}`}
         >
@@ -26,7 +27,10 @@ export const FloatingCartButton: React.FC = () => {
               <ShoppingBag className="w-4 h-4" />
             </div>
             {totalCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 bg-amber-400 text-stone-950 text-[10px] font-mono font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-scaleIn">
+              <span
+                key={totalCount}
+                className="absolute -top-1.5 -right-1.5 bg-amber-400 text-stone-950 text-[10px] font-mono font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-pop"
+              >
                 {totalCount}
               </span>
             )}
@@ -81,7 +85,8 @@ export const FloatingCartButton: React.FC = () => {
             {/* View Cart Button */}
             <button
               onClick={() => setIsCartOpen(true)}
-              className="py-2.5 px-5 bg-[#991b1b] hover:bg-[#b91c1c] active:scale-95 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition shadow-lg shadow-red-950/60 flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+              style={{ backgroundColor: 'var(--color-button, #991b1b)', color: 'var(--color-button-text, #ffffff)' }}
+              className="py-2.5 px-5 active:scale-95 text-xs font-bold uppercase tracking-wider rounded-xl transition shadow-lg shadow-red-950/60 flex items-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
             >
               <span>View Cart</span>
               <ArrowRight className="w-3.5 h-3.5 text-amber-300" />
