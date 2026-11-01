@@ -9,14 +9,14 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { MENU_ITEMS, SPECIAL_DEALS, FEATURED_DISHES, MenuItem as DefaultMenuItem } from '../data/menuData';
-import { getDishPhoto } from '../components/MenuCard';
+import { MENU_ITEMS, SPECIAL_DEALS, MenuItem as DefaultMenuItem } from '../data/menuData';
 
 export interface DynamicMenuItem {
   id: string;
   name: string;
   category: string;
   price: number;
+  portionLabel?: string;
   familyPrice?: number;
   description?: string;
   image?: string;
@@ -89,10 +89,10 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
       name: item.name,
       category: item.category,
       price: item.price ?? 0,
-      familyPrice: item.familyPrice,
-      description: item.note || '',
-      image: item.image || getDishPhoto(item.name, item.category, undefined, item.id),
-      available: true,
+      portionLabel: item.portionLabel,
+      description: item.description || '',
+      image: item.image,
+      available: item.available !== false,
       badge: item.badge,
     }));
   });
@@ -110,7 +110,6 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
           items.push({
             id: docSnap.id,
             ...raw,
-            image: getDishPhoto(raw.name, raw.category, raw.image, docSnap.id),
           });
         });
         setMenuItems(items);
@@ -198,10 +197,9 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: item.name,
           category: item.category,
           price: item.price ?? 0,
-          familyPrice: item.familyPrice || null,
-          description: item.note || '',
-          image: item.image || '/images/hero_wok_fire.jpg',
-          available: true,
+          portionLabel: item.portionLabel || null,
+          description: item.description || '',
+          available: item.available !== false,
           badge: item.badge || null,
           updatedAt: new Date().toISOString(),
         });
@@ -231,10 +229,9 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: staticItem.name,
         category: staticItem.category,
         price: staticItem.price ?? 0,
-        familyPrice: staticItem.familyPrice,
-        description: staticItem.note,
-        image: staticItem.image,
-        available: true,
+        portionLabel: staticItem.portionLabel,
+        description: staticItem.description,
+        available: staticItem.available !== false,
         badge: staticItem.badge,
       };
     }
@@ -245,24 +242,11 @@ export const MenuProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return {
         id: dealItem.id,
         name: dealItem.title,
-        category: 'Deals',
+        category: 'Super Deals',
         price: dealItem.price,
         description: dealItem.items.join(', '),
         available: true,
         badge: dealItem.badge,
-      };
-    }
-
-    // 5. Fallback to FEATURED_DISHES
-    const featItem = FEATURED_DISHES.find((f) => f.id === id || f.id === baseId);
-    if (featItem) {
-      return {
-        id: featItem.id,
-        name: featItem.name,
-        category: featItem.category,
-        price: featItem.price,
-        available: true,
-        badge: featItem.badge,
       };
     }
 

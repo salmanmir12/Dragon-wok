@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ZoomIn, Info } from 'lucide-react';
-import { GALLERY_ITEMS } from '../data/menuData';
+import { GALLERY_ITEMS, GalleryItem } from '../data/menuData';
 import { LightboxModal } from './LightboxModal';
 
 type GalleryCategory = 'All' | 'Food' | 'Noodles' | 'Momos' | 'Soups' | 'Chicken' | 'Restaurant' | 'Wok';
@@ -18,11 +18,11 @@ const GALLERY_CATEGORIES: GalleryCategory[] = [
 
 export const Gallery: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<GalleryCategory>('All');
-  const [selectedImage, setSelectedImage] = useState<typeof GALLERY_ITEMS[0] | null>(null);
+  const [selectedImage, setSelectedImage] = useState<GalleryItem | null>(null);
 
   const filteredItems = activeCategory === 'All'
     ? GALLERY_ITEMS
-    : GALLERY_ITEMS.filter((item) => item.category === activeCategory);
+    : GALLERY_ITEMS.filter((item: GalleryItem) => item.category === activeCategory);
 
   return (
     <section id="gallery" className="py-24 bg-[#15171c] relative border-t border-stone-800 scroll-mt-12">
@@ -68,7 +68,7 @@ export const Gallery: React.FC = () => {
 
         {/* Masonry-Style Responsive Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredItems.map((item) => (
+          {filteredItems.map((item: GalleryItem) => (
             <div
               key={item.id}
               onClick={() => setSelectedImage(item)}

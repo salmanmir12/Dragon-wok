@@ -43,9 +43,15 @@ import { useAuth } from '../context/AuthContext';
 import { useMenu, DynamicMenuItem } from '../context/MenuContext';
 import { useTheme } from '../context/ThemeContext';
 import { uploadDishImage, deleteDishImage, validateImageFile } from '../utils/imageUpload';
-import { getDishPhoto } from '../components/MenuCard';
 import { StoredOrder } from './CustomerAccount';
 import { Link } from 'react-router-dom';
+
+const getAdminDishPhoto = (name: string, category?: string, customImage?: string, itemId?: string): string => {
+  if (customImage && customImage.trim() !== '' && !customImage.includes('hero_wok_fire')) {
+    return customImage;
+  }
+  return '/images/dishes/chicken_chowmein.jpg';
+};
 
 type AdminTab = 'overview' | 'orders' | 'menu' | 'appearance' | 'customers' | 'reports' | 'settings';
 
@@ -1279,7 +1285,7 @@ export const AdminDashboard: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredMenuItems.map((item) => {
                 const isCustomPhoto = Boolean(item.image && (item.image.includes('firebasestorage.googleapis.com') || item.image.startsWith('http')));
-                const photoSrc = getDishPhoto(item.name, item.category, item.image, item.id);
+                const photoSrc = getAdminDishPhoto(item.name, item.category, item.image, item.id);
                 const isUploading = uploadingItemId === item.id;
                 const progress = itemUploadProgress[item.id] || 0;
 
@@ -1415,7 +1421,7 @@ export const AdminDashboard: React.FC = () => {
                               badge: item.badge || '',
                             });
                             setModalImageFile(null);
-                            setModalImagePreview(item.image || getDishPhoto(item.name, item.category, item.image, item.id));
+                            setModalImagePreview(item.image || getAdminDishPhoto(item.name, item.category, item.image, item.id));
                             setModalUploadError(null);
                             setIsNewItemModalOpen(true);
                           }}
